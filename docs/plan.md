@@ -260,6 +260,25 @@ columna. Fallan ruidosamente y bloquean la promoción a gold.
 Borrado del `.gz` en cuanto la hora está escrita en bronze, con verificación
 previa de conteo.
 
+### Estado: COMPLETADA el 2026-08-17
+
+`bronze.py`, `silver.py`, `bots.py` y `calidad/tests_calidad.py` funcionando y
+medidos sobre dos días reales, uno de cada formato. **16 comprobaciones de
+calidad en verde.**
+
+Silver escribe dos tablas: `eventos` (todos los eventos tipados, sostiene la
+pregunta 3) y `pr_eventos` (payload de PR extraído, sostiene las preguntas 1 y
+2). La detección de esquema de D12 funciona: cada día cayó en el suyo sin que el
+código conozca la fecha del cambio.
+
+La clasificación de actores pasó de booleano a cinco clases (D21). Los
+timestamps se fuerzan a UTC (D22) y los tests vigilan tasas de nulos en vez de
+exigir cero (D23).
+
+**Pendiente**: el backfill no se ha lanzado. Falta el script que encadene
+descargar → bronze → borrar crudo día a día, porque bajar los 435 días de golpe
+son ~412 GiB y no caben en el presupuesto de D16.
+
 **Checkpoint humano.**
 
 ---
