@@ -125,6 +125,12 @@ def main() -> int:
     push_truncados = 0
     push_tam_max_visto = 0
     push_ejemplo_truncado = None
+    push_claves = Counter()          # que trae de verdad el payload de PushEvent
+
+    # Claves realmente presentes en payload.pull_request. Se mide en vez de
+    # suponerse: el payload de GH Archive puede venir recortado.
+    pr_claves = Counter()
+    pr_acciones = Counter()
 
     # Punto 7
     actores_bot_sufijo = Counter()
@@ -182,6 +188,9 @@ def main() -> int:
 
             if tipo == "PullRequestEvent":
                 total_pr += 1
+                pr = (ev.get("payload") or {}).get("pull_request") or {}
+                pr_claves.update(pr.keys())
+                pr_acciones[(ev.get("payload") or {}).get("action")] += 1
                 for ruta in RUTAS_LENGUAJE_CANDIDATAS:
                     hay, valor = leer_ruta(ev, ruta)
                     if hay:
@@ -212,6 +221,7 @@ def main() -> int:
             if tipo == "PushEvent":
                 push_total += 1
                 p = ev.get("payload") or {}
+                push_claves.update(p.keys())
                 commits = p.get("commits") or []
                 tam = p.get("size")
                 push_tam_max_visto = max(push_tam_max_visto, len(commits))
@@ -266,19 +276,41 @@ def main() -> int:
             a(f"| `{i}` | {c} | {identico} |")
 
     a("\n## 6. Truncamiento de commits en `PushEvent`\n")
-    a(f"- `PushEvent` analizados: **{push_total:,}**")
-    a(f"- Con `payload.size` > `len(payload.commits)` (truncados): **{push_truncados:,}**"
-      + (f" ({100*push_truncados/push_total:.2f}%)" if push_total else ""))
-    a(f"- Máximo `len(commits)` observado: **{push_tam_max_visto}**")
-    if push_ejemplo_truncado:
-        a(f"- Ejemplo real: `{push_ejemplo_truncado}`")
+    a(f"`PushEvent` analizados: **{push_total:,}**\n")
+    a("Claves realmente presentes en `payload`:\n")
+    a("| Clave | Ocurrencias | Cobertura |")
+    a("|---|---:|---:|")
+    for k, c in push_claves.most_common():
+        a(f"| `{k}` | {c:,} | {100*c/push_total:.2f}% |")
+
+    hay_commits = "commits" in push_claves
+    hay_size = "size" in push_claves
     a("")
-    a("Si el máximo observado se apelmaza en un número redondo, ese es el tope")
-    a("que aplica GH Archive y hay que contarlo con `size`, nunca con `len(commits)`.")
+    if not hay_commits and not hay_size:
+        a("**Ni `commits` ni `size` existen en el payload.** La pregunta del")
+        a("truncamiento queda respondida por la vía inesperada: no hay array de")
+        a("commits que truncar. `PushEvent` aporta el hecho del push (quién, a qué")
+        a("repo, a qué rama, cuándo) y los SHA `head`/`before`, pero no el detalle")
+        a("de los commits ni su número.")
+    else:
+        a(f"- Con `payload.size` > `len(payload.commits)` (truncados): **{push_truncados:,}**"
+          + (f" ({100*push_truncados/push_total:.2f}%)" if push_total else ""))
+        a(f"- Máximo `len(commits)` observado: **{push_tam_max_visto}**")
+        if push_ejemplo_truncado:
+            a(f"- Ejemplo real: `{push_ejemplo_truncado}`")
+        a("")
+        a("Si el máximo observado se apelmaza en un número redondo, ese es el tope")
+        a("que aplica GH Archive y hay que contarlo con `size`, nunca con `len(commits)`.")
 
     a("\n## 4. ¿Está el lenguaje del repo en `PullRequestEvent`?\n")
     a("**Es el supuesto crítico de la pregunta de negocio 1.**\n")
     a(f"`PullRequestEvent` analizados: {total_pr:,}\n")
+    a("Antes de buscar el lenguaje, qué trae de verdad `payload.pull_request`:\n")
+    a("| Clave | Ocurrencias | Cobertura |")
+    a("|---|---:|---:|")
+    for k, c in pr_claves.most_common():
+        a(f"| `{k}` | {c:,} | {100*c/total_pr:.2f}% |" if total_pr else f"| `{k}` | {c:,} | — |")
+    a("")
     a("| Ruta candidata | Existe la clave | No nula | Cobertura |")
     a("|---|---:|---:|---:|")
     for ruta in RUTAS_LENGUAJE_CANDIDATAS:
@@ -315,6 +347,19 @@ def main() -> int:
 
     a("\n## 8. Campos temporales del PR por acción\n")
     a("Sin esto no hay pregunta de negocio 2 (latencia hasta review y hasta merge).\n")
+    a("Acciones observadas en `PullRequestEvent`:\n")
+    a("| Acción | Eventos |")
+    a("|---|---:|")
+    for accion, c in pr_acciones.most_common():
+        a(f"| `{accion}` | {c:,} |")
+    temporales_presentes = [c for c in ("created_at", "updated_at", "closed_at",
+                                        "merged_at", "merged") if c in pr_claves]
+    a("")
+    if not temporales_presentes:
+        a("**Ningún campo temporal del PR está presente en el payload.** La latencia")
+        a("no se puede leer: hay que derivarla del `created_at` de los propios")
+        a("eventos, uniéndolos por `payload.pull_request.id`.")
+    a("")
     if campos_temporales:
         campos = ["(total eventos)", "created_at", "updated_at", "closed_at", "merged_at", "merged"]
         a("| Acción | " + " | ".join(f"`{c}`" for c in campos[1:]) + " | Total |")
@@ -352,7 +397,9 @@ def main() -> int:
             a("```\n")
             a("</details>\n")
 
-    destino = Path(__file__).resolve().parent.parent / "docs" / "exploracion.md"
+    # Anexo de hallazgos crudos. Las conclusiones y sus implicaciones se
+    # escriben a mano en docs/exploracion.md, que es el entregable de la fase.
+    destino = Path(__file__).resolve().parent.parent / "docs" / "exploracion_datos.md"
     destino.write_text("\n".join(out), encoding="utf-8")
     print(f"Informe escrito en {destino}")
     print(f"Eventos: {total:,} | tipos: {len(tipos)} | duplicados: {len(duplicados)}")

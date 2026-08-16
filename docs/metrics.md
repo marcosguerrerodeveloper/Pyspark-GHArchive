@@ -58,4 +58,51 @@ Requieren abrir una terminal nueva para verse. `C:\hadoop\bin` debe estar en el
 
 ## Fase 0 — Reconocimiento
 
-Pendiente.
+Fichero: `2026-08-12-14.json.gz` (miércoles, 14:00–14:59 UTC).
+Descargado y analizado en un runner de GitHub Actions (`ubuntu-latest`), porque
+la red local no alcanza `data.gharchive.org`; ver D10.
+
+### Fichero
+
+| Medida | Valor |
+|---|---|
+| Tamaño comprimido | 22.891.223 B (21,83 MiB) |
+| Tamaño descomprimido | 111.671.173 B (106,50 MiB) |
+| Ratio de compresión | 4,88× |
+| Eventos | 162.301 |
+| Líneas no parseables | 0 |
+| `created_at` mín. / máx. | `14:00:00Z` / `14:59:59Z` |
+| `id` duplicados | 1 (`13173052275`, contenido idéntico) |
+
+### Composición
+
+| Medida | Valor |
+|---|---:|
+| Tipos de evento distintos | 15 |
+| `PushEvent` | 148.551 (91,53 %) |
+| `PullRequestEvent` | 770 (0,47 %) |
+| `PullRequestReviewEvent` | 228 (0,14 %) |
+| `IssuesEvent` | 461 (0,28 %) |
+| Los 4 tipos de las preguntas de negocio | 1.606 (0,99 %) |
+| Eventos de cuentas `[bot]` | 16.547 (10,20 %) |
+| Cuentas `[bot]` distintas | 380 |
+
+### Cobertura de campos críticos
+
+| Campo | Cobertura |
+|---|---:|
+| `payload.pull_request.id` | 100 % (770/770) |
+| Lenguaje del repo (4 rutas probadas) | **0 %** |
+| Campos temporales del PR | **0 %** |
+| `payload.commits` / `size` en `PushEvent` | **0 %** |
+
+### Extrapolación de volumen
+
+**No es una medición.** Se proyecta desde una única hora punta, así que es una
+cota alta. Pendiente de confirmar midiendo un día completo en la Fase 1.
+
+| Horizonte | Comprimido | Eventos |
+|---|---:|---:|
+| 1 día | ~0,51 GiB | ~3,9 M |
+| 1 mes | ~15,3 GiB | ~117 M |
+| 1 año | ~187 GiB | ~1.422 M |

@@ -67,3 +67,55 @@ qué me cuesta.
   el job funcione con solo invocar el intérprete correcto, sin ritual previo.
 - **Coste**: dos líneas repetidas en cada entrypoint. Se centralizarán en un
   único helper de sesión de Spark en la Fase 2.
+
+## D7 — El lenguaje del repo no está en los datos: la pregunta 1 se reformula
+
+- **Qué**: la pregunta de negocio 1 pierde el corte por lenguaje del repo.
+- **Alternativas**: enriquecer con la API de GitHub (5.000 req/h autenticado),
+  o derivar un proxy desde las extensiones de fichero de los commits.
+- **Por qué**: se comprobaron cuatro rutas candidatas en 770 `PullRequestEvent`
+  y **ninguna existe**; el objeto `repo` solo trae `id`, `name` y `url`. La
+  segunda opción mete una dependencia de red y de token que choca con "todo
+  corre en Actions gratis"; la tercera es imposible, porque tampoco hay array
+  de commits.
+- **Coste**: el dashboard no podrá segmentar la actividad de bots por lenguaje.
+  Se dice como limitación explícita en el README en lugar de disimularlo.
+
+## D8 — La latencia de PR se deriva de los eventos, no de campos del payload
+
+- **Qué**: los tiempos hasta primer review y hasta merge se calculan restando
+  el `created_at` de eventos unidos por `payload.pull_request.id`.
+- **Alternativas**: leer `created_at` / `merged_at` del propio PR, que es como
+  estaba planteada la pregunta 2.
+- **Por qué**: esos campos no existen en el payload recortado. El `id` del PR
+  sí está al 100 % en los tres tipos de evento relevantes, y `payload.action`
+  trae `merged` como valor propio, sin tener que inferirlo de `closed` + flag.
+- **Coste**: amplifica la censura por los bordes de la ventana. Obliga a
+  cohortar por fecha de apertura y a descartar explícitamente las cohortes sin
+  madurar y los merges huérfanos, en vez de promediarlo todo.
+
+## D9 — El entregable de la Fase 0 se separa en dos ficheros
+
+- **Qué**: `analizar_hora.py` genera `docs/exploracion_datos.md` (tablas y
+  ejemplos crudos); `docs/exploracion.md` lo escribo a mano con conclusiones.
+- **Alternativas**: un único fichero generado, o uno único escrito a mano.
+- **Por qué**: el anexo se regenera al analizar otra hora y machacaría
+  cualquier análisis escrito encima; y las implicaciones sobre las preguntas de
+  negocio no las puede redactar un script.
+- **Coste**: hay que releer el anexo y actualizar las conclusiones a mano si se
+  analiza otra hora. Es trabajo consciente, que es justo lo que se quiere aquí.
+
+## D10 — La descarga se ejecuta en GitHub Actions, no en local
+
+- **Qué**: la Fase 0 descarga y analiza en un runner de Actions, que publica el
+  informe y el `.gz` como artefactos temporales.
+- **Alternativas**: usar una VPN tipo Cloudflare WARP en local, o esperar a que
+  el bloqueo remita.
+- **Por qué**: `data.gharchive.org` resuelve a `188.114.96.5` / `.97.5`, y la
+  conexión TCP al 443 no se establece desde esta red mientras que otros
+  destinos sí. Verificado fuera de Claude Code, sin proxy ni VPN configurados,
+  así que el bloqueo es aguas arriba del router. El runner tiene salida limpia
+  y el coste sigue siendo 0 € en un repo público.
+- **Coste**: **no resuelve el backfill grande**, que debe correr en local por
+  diseño. Si el bloqueo persiste, la Fase 1 se queda sin máquina donde correr y
+  habrá que decidir entre VPN o replantear dónde vive el backfill.
