@@ -123,6 +123,18 @@ No estaba en `CLAUDE.md` pero sin esto la Fase 0 no puede ni ejecutarse.
 −1.5 es el que valida de verdad el punto 2 de los blockers. Si falla ahí,
 migramos a WSL2 antes de invertir nada más.
 
+### Estado: COMPLETADA el 2026-08-16
+
+Las cinco tareas hechas y verificadas. Detalle de las cifras en `metrics.md`.
+
+- Repo público: https://github.com/marcosguerrerodeveloper/Pyspark-GHArchive
+- JDK: Temurin 17.0.20, **64-Bit Server VM**. El JRE de 32 bits queda anulado
+  por `JAVA_HOME`.
+- −1.5 necesitó dos correcciones, ambas registradas como decisiones: winutils
+  con `HADOOP_HOME` (D5) y `PYSPARK_PYTHON` fijado en código (D6). Pasa en
+  verde: 1.000 filas escritas y releídas en 2 particiones.
+- **D1 se confirma**: Windows nativo funciona, no hace falta WSL2.
+
 **Checkpoint humano.**
 
 ---
