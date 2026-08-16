@@ -1,0 +1,50 @@
+name: Fase 0 - comparar esquema entre anos
+
+# El recorte de payloads observado en 2026 no estaba documentado. Si el formato
+# cambio en algun momento, el backfill se rompe a mitad, asi que hay que saber
+# desde cuando el esquema es el actual antes de fijar la ventana historica.
+on:
+  workflow_dispatch:
+    inputs:
+      fechas:
+        description: "Fechas YYYY-MM-DD separadas por espacios"
+        required: true
+        default: "2026-08-12 2025-08-13 2024-08-14 2023-08-16 2022-08-17 2020-08-12 2018-08-15 2016-08-17"
+      hora:
+        description: "Hora UTC, la misma para todas"
+        required: true
+        default: "14"
+
+jobs:
+  comparar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Instalar dependencias de ingesta
+        run: pip install httpx==0.28.1
+
+      # Secuencial y no en paralelo: GH Archive lo mantiene una persona.
+      - name: Descargar las horas
+        env:
+          GHA_DATA_DIR: ${{ github.workspace }}/data
+        run: |
+          for fecha in ${{ inputs.fechas }}; do
+            python exploracion/descargar_muestra.py "$fecha" "${{ inputs.hora }}" || \
+              echo "AVISO: no se pudo descargar $fecha, se continua"
+          done
+          ls -la data/raw/exploracion/
+
+      - name: Comparar esquemas
+        run: python exploracion/comparar_horas.py data/raw/exploracion/*.json.gz
+
+      - name: Publicar el informe comparativo
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-historico
+          path: docs/exploracion_historico.md
+          retention-days: 14
