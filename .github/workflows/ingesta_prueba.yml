@@ -1,0 +1,78 @@
+name: Fase 1 - probar la ingesta y medir un dia completo
+
+# Dos objetivos en una sola ejecucion:
+#   1. Validar el criterio de aceptacion de la fase: correrlo dos veces sobre el
+#      mismo rango no debe descargar nada la segunda vez.
+#   2. Medir un dia entero de verdad, para sustituir la extrapolacion desde una
+#      hora punta que quedo anotada en metrics.md.
+on:
+  workflow_dispatch:
+    inputs:
+      fecha:
+        description: "Dia completo a descargar (YYYY-MM-DD)"
+        required: true
+        default: "2025-08-13"
+
+jobs:
+  probar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - run: pip install httpx==0.28.1
+
+      - name: Primera pasada - descarga completa
+        env:
+          GHA_DATA_DIR: ${{ github.workspace }}/data
+        run: |
+          echo "::group::primera pasada"
+          python ingest/descargar.py --desde "${{ inputs.fecha }}" --hasta "${{ inputs.fecha }}"
+          echo "::endgroup::"
+          echo "--- tamano en disco tras la primera pasada ---"
+          du -sh data/raw/${{ inputs.fecha }}
+          ls data/raw/${{ inputs.fecha }} | wc -l
+
+      - name: Segunda pasada - debe saltarselo todo
+        env:
+          GHA_DATA_DIR: ${{ github.workspace }}/data
+        run: |
+          python ingest/descargar.py --desde "${{ inputs.fecha }}" --hasta "${{ inputs.fecha }}" \
+            | tee segunda.txt
+          echo "--- verificacion de idempotencia ---"
+          if grep -qE "'(ok|error)': [1-9]" segunda.txt; then
+            echo "FALLO: la segunda pasada volvio a trabajar"
+            exit 1
+          fi
+          echo "OK: la segunda pasada no descargo nada"
+
+      - name: Medir el dia completo
+        env:
+          GHA_DATA_DIR: ${{ github.workspace }}/data
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          m = json.loads(pathlib.Path(os.environ["GHA_DATA_DIR"], "raw", "manifiesto.json").read_text())
+          ok = {k: v for k, v in m.items() if v.get("estado") == "ok"}
+          ausentes = [k for k, v in m.items() if v.get("estado") == "ausente"]
+          total = sum(v["bytes"] for v in ok.values())
+          segundos = sum(v["segundos"] for v in ok.values())
+          print(f"horas con datos      : {len(ok)}")
+          print(f"horas ausentes (404) : {len(ausentes)} {ausentes}")
+          print(f"bytes del dia        : {total:,} ({total/1024**3:.3f} GiB)")
+          print(f"hora mas pesada      : {max(v['bytes'] for v in ok.values()):,} B")
+          print(f"hora mas ligera      : {min(v['bytes'] for v in ok.values()):,} B")
+          print(f"media por hora       : {total/len(ok):,.0f} B")
+          print(f"segundos de descarga : {segundos:.1f} (suma por fichero)")
+          print(f"proyeccion 365 dias  : {total*365/1024**4:.3f} TiB")
+          PY
+
+      - name: Publicar el manifiesto
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifiesto-${{ inputs.fecha }}
+          path: data/raw/manifiesto.json
+          retention-days: 14
