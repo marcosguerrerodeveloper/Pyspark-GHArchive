@@ -172,8 +172,23 @@ negocio depende de ellas y salen gratis en la misma pasada:
 9. Identificador estable de PR entre eventos distintos: ¿qué campo permite unir
    un `PullRequestEvent` con sus `PullRequestReviewEvent`?
 
-**Checkpoint humano.** Aquí se decide la ventana histórica, ya con el tamaño
-por hora medido en la mano.
+### Estado: COMPLETADA el 2026-08-16
+
+Los nueve puntos cubiertos. Entregable en `exploracion.md` (conclusiones) más
+`exploracion_datos.md` y `exploracion_historico.md` (anexos generados).
+
+El hallazgo central no estaba previsto: **GH Archive cambió de formato el
+2025-10-09** y desde entonces sirve los payloads recortados. Acotado por
+bisección en cinco tandas sobre Actions, de un rango de diez años a un día.
+Trae además seis días de volumen colapsado (2025-10-09 → 10-14) que se
+recuperan el día 15.
+
+Decisiones derivadas: D11 (ventana `2024-10-09 → 2025-10-08`), D12 (soportar
+ambos esquemas detectando por campos), D13 (excluir el tramo degradado), D14.
+Y D7 queda revocada: el lenguaje del repo **sí** está en el histórico rico, al
+~90 %.
+
+**Checkpoint humano.**
 
 ---
 
@@ -340,7 +355,18 @@ Cerradas el 2026-08-16 (detalle en `decisions.md`):
 3. **Alcance de la Fase 0**: una sola hora, como pide `CLAUDE.md`.
 4. **Lago de datos**: `D:/gharchive-data`, vía `GHA_DATA_DIR`.
 
-Sigue abierta:
+Cerradas tras la Fase 0:
 
-5. **Ventana histórica**: se pospone deliberadamente al checkpoint de la Fase 0,
-   cuando haya un tamaño por hora medido.
+5. **Ventana histórica**: `2024-10-09 → 2025-10-08` (D11), sujeta a que quepa
+   en disco según la medición de un día completo.
+6. **Dos esquemas** soportados por detección de campos (D12).
+7. **Bronze no filtra por tipo de evento**, salvo que el volumen obligue. En el
+   formato reducido guardarlo todo es barato; en el completo el array de
+   commits de `PushEvent` es lo que más pesa, y ahí sí sería la primera palanca.
+
+Siguen abiertas:
+
+8. **El bloqueo de red (D10)**, que impide correr la ingesta en local. Bloquea
+   la Fase 1.
+9. **Si un año de histórico rico cabe en `D:`**, con el borrado del `.gz` tras
+   escribir bronze como mecanismo que lo hace viable.
