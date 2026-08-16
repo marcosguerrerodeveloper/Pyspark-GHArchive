@@ -293,3 +293,54 @@ Sustituye a D11.
 - **Coste**: si dos jobs corrieran a la vez sobre el mismo destino, uno borraría
   el staging del otro. El backfill es secuencial por diseño, así que no aplica,
   pero queda dicho por si algún día se paraleliza.
+
+## D21 — Los actores se clasifican en cinco clases, no en un booleano
+
+- **Qué**: `actor_clase` ∈ {`humano`, `agente_ia`, `bot_dependencias`,
+  `bot_ci`, `bot_otro`}, en `spark_jobs/bots.py`. El sufijo `[bot]` decide si
+  algo es automático; las listas solo deciden de qué tipo.
+- **Alternativas**: un `is_bot` booleano, como decía el plan original.
+- **Por qué**: la pregunta 1 pregunta por «bots **y agentes automáticos**», y
+  meter `dependabot` y `devin-ai-integration` en el mismo cubo borra justo lo
+  que se quiere medir. Lo que la lista no reconoce cae en `bot_otro`, nunca en
+  `humano`: un falso negativo contamina la serie de humanos, que es la base de
+  comparación.
+- **Coste**: es una lista mantenida a mano y por tanto incompleta. Queda un
+  **1,26 %** de eventos en `bot_otro`, y hay que decirlo en el dashboard en vez
+  de presentar la clasificación como exhaustiva.
+
+## D22 — La sesión de Spark fija `session.timeZone = UTC`
+
+- **Qué**: todos los jobs fuerzan UTC.
+- **Alternativas**: dejar la zona por defecto, que es la de la máquina.
+- **Por qué**: `to_timestamp` interpretaba la `Z` de GH Archive y convertía a
+  UTC+2, con lo que un día empezaba a las 02:00 y no a medianoche. Eso
+  desplazaba las agregaciones diarias y contaminaba cualquier latencia. El dato
+  es global; la zona de quien lo procesa no debe aparecer en él.
+- **Coste**: ninguno de fondo. Sí obliga a recordar que **traer un timestamp a
+  Python con `.first()` lo reconvierte a la zona del sistema operativo e ignora
+  esta configuración**: por eso los tests formatean con `date_format` en Spark
+  y comparan cadenas. El primer test acusó un desfase que solo existía en el
+  propio test.
+
+## D23 — Los tests vigilan la tasa de nulos, no exigen cero
+
+- **Qué**: `repo` admite hasta un 0,01 % de nulos; `evento_id`, `tipo`,
+  `creado_en`, `actor` y `actor_clase` siguen exigiendo cero.
+- **Alternativas**: exigir cero en todas, o quitar `repo` de los tests.
+- **Por qué**: apareció **un** `ForkEvent` sin `repo.name` **en el origen**,
+  entre casi ocho millones. No es un fallo del pipeline y bloquear la promoción
+  a gold por él sería un test que se ignora a la primera. El plan pide «tasa de
+  nulos por columna», que es exactamente esto.
+- **Coste**: un umbral es una decisión arbitraria. Se fija bajo a propósito
+  (0,01 % son ~770 eventos al día) para que una degradación real siga saltando.
+
+## D19 ter — Enmienda por medición: el tramo A baja a 116 días
+
+- **Qué**: tramo A `2025-06-15 → 2025-10-08` (116 días), en lugar de 130.
+- **Por qué**: silver ya no es una provisión. Medido son 43,2 GiB para los 435
+  días, frente a los 25,3 que se habían provisionado al 15 %, sobre todo porque
+  en el tramo B silver pesa casi lo mismo que bronze (96 %). Con 130 días el
+  margen bajaba al 9 % sin contar gold ni el crudo transitorio.
+- **Coste**: catorce días menos de histórico rico. La cobertura total queda en
+  **14 meses** y el margen sube al 13 %, que ya absorbe gold y los picos.

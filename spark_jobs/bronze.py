@@ -22,29 +22,7 @@ from pathlib import Path
 from pyspark.sql import functions as F
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sesion import crear_sesion, raiz_datos  # noqa: E402
-
-
-def tam_directorio(ruta: Path) -> int:
-    return sum(f.stat().st_size for f in ruta.rglob("*") if f.is_file())
-
-
-def limpiar_staging(destino: Path) -> None:
-    """Borra los .spark-staging huerfanos de ejecuciones que fallaron.
-
-    Con partitionOverwriteMode=dynamic, Spark escribe primero en un directorio
-    temporal y lo promueve al final. Si el job muere antes, ese temporal se
-    queda ahi para siempre. En un backfill de cientos de dias eso son cientos
-    de GiB de basura silenciosa, asi que se limpia al arrancar en lugar de
-    confiar en que ningun job vuelva a fallar.
-    """
-    if not destino.exists():
-        return
-    for resto in destino.glob(".spark-staging-*"):
-        if resto.is_dir():
-            tam = tam_directorio(resto)
-            shutil.rmtree(resto, ignore_errors=True)
-            print(f"staging huerfano borrado: {resto.name} ({tam/1024**3:.3f} GiB)")
+from sesion import crear_sesion, limpiar_staging, raiz_datos, tam_directorio  # noqa: E402
 
 
 def main() -> int:

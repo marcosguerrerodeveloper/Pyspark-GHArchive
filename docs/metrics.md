@@ -317,3 +317,81 @@ Margen: **17 %**. Cobertura temporal: **14,5 meses**.
 
 El tramo A gana 38 días respecto al reparto anterior gracias a la medición del
 tramo B. Silver sigue siendo la única cifra sin medir del cálculo.
+
+---
+
+## Fase 2 — Silver
+
+Fecha: 2026-08-17. Días de prueba: 2025-08-13 (completo) y 2026-08-12 (reducido).
+
+| Medida | Valor |
+|---|---|
+| Leídas de bronze | 7.719.363 |
+| **Duplicados por `id`** | **10** |
+| `silver/eventos` | 7.719.353 filas |
+| `silver/pr_eventos` | 482.588 filas |
+| Duración (2 días) | 100,9 s |
+
+### Tamaño en disco — cierra la última incógnita del presupuesto
+
+| Tabla | Tramo A (2025-08-13) | Tramo B (2026-08-12) |
+|---|---:|---:|
+| `eventos` | 0,102 GiB | 0,088 GiB |
+| `pr_eventos` | 0,022 GiB | 0,001 GiB |
+| **Silver total** | **0,124 GiB** | **0,089 GiB** |
+| bronze (referencia) | 1,078 GiB | 0,093 GiB |
+| silver / bronze | 11,5 % | **96 %** |
+
+El contraste es el esperado: en el tramo A silver es una décima parte de bronze
+porque descarta el JSON; en el tramo B bronze ya casi no tiene JSON que
+descartar, así que silver pesa casi lo mismo.
+
+**La provisión del 15 % se queda corta.** Silver real son 43,2 GiB para los 435
+días, no los 25,3 provisionados.
+
+### Verificación de la detección de esquema (D12)
+
+| Esquema | Filas | `pr_id` | Lenguaje | `pr_abierto_en` | `pr_autor` |
+|---|---:|---:|---:|---:|---:|
+| completo | 463.458 | 100 % | **91,6 %** | 100 % | 100 % |
+| reducido | 19.130 | 100 % | 0 % | 0 % | 0 % |
+
+Cada día cayó en su esquema sin que el código conozca la fecha del cambio.
+
+### `es_merge` unificado entre convenios
+
+| Esquema | Cómo llega el merge | Merges |
+|---|---|---:|
+| completo | `closed` + `merged=true` | 108.866 |
+| reducido | acción `merged` propia | 3.829 |
+
+### Clasificación de actores
+
+| Clase | Eventos | Antes de ampliar listas |
+|---|---:|---:|
+| humano | 6.268.266 | 6.268.266 |
+| bot_ci | 1.093.101 | 1.022.500 |
+| bot_dependencias | 202.030 | 202.030 |
+| **agente_ia** | **58.614** | 45.293 |
+| bot_otro | 97.342 | 181.264 |
+
+Ampliar las listas con lo observado subió `agente_ia` un **29 %** y redujo
+`bot_otro` a la mitad. Queda un 1,26 % de eventos en `bot_otro`: es la cola de
+cuentas de bajo volumen, y es una limitación conocida del método.
+
+### Tests de calidad
+
+**16 comprobaciones, 16 en verde.**
+
+### Reparto final del presupuesto — todas las cifras medidas
+
+| Concepto | Días | GiB/día | Total |
+|---|---:|---:|---:|
+| Tramo A bronze | 116 | 1,078 | 125,0 |
+| Tramo A silver | 116 | 0,124 | 14,4 |
+| Tramo B bronze | 305 | 0,093 | 28,4 |
+| Tramo B silver | 305 | 0,089 | 27,1 |
+| Crudo transitorio + gold | | | ~7 |
+| **Total** | **421** | | **~202 GiB** de 232,8 |
+
+Margen: **13 %**.
