@@ -1,0 +1,55 @@
+name: Fase 0 - exploracion de una hora
+
+# Lanzamiento manual. La red local del autor no alcanza a data.gharchive.org
+# (bloqueo por rango de IP aguas arriba), y el runner si tiene salida limpia.
+on:
+  workflow_dispatch:
+    inputs:
+      fecha:
+        description: "Fecha en formato YYYY-MM-DD"
+        required: true
+        default: "2026-08-12"
+      hora:
+        description: "Hora UTC, sin cero a la izquierda (0-23)"
+        required: true
+        default: "14"
+
+jobs:
+  explorar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # analizar_hora.py solo usa la libreria estandar; httpx es para la descarga.
+      - name: Instalar dependencias de ingesta
+        run: pip install httpx==0.28.1
+
+      - name: Descargar la hora
+        env:
+          GHA_DATA_DIR: ${{ github.workspace }}/data
+        run: python exploracion/descargar_muestra.py "${{ inputs.fecha }}" "${{ inputs.hora }}"
+
+      - name: Analizar
+        run: |
+          python exploracion/analizar_hora.py \
+            "data/raw/exploracion/${{ inputs.fecha }}-${{ inputs.hora }}.json.gz"
+
+      # El .gz no se commitea nunca al repo, pero como artefacto temporal
+      # permite inspeccionar los datos crudos en local.
+      - name: Publicar la muestra cruda
+        uses: actions/upload-artifact@v4
+        with:
+          name: muestra-cruda-${{ inputs.fecha }}-${{ inputs.hora }}
+          path: data/raw/exploracion/*.json.gz
+          retention-days: 1
+
+      - name: Publicar el informe
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-exploracion
+          path: docs/exploracion.md
+          retention-days: 14
