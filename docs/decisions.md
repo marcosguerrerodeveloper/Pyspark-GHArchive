@@ -264,3 +264,17 @@ Sustituye a D11.
   209 GiB de los 232,8 disponibles. El margen es del 10 %, así que **la
   provisión de silver hay que sustituirla por una medición** en cuanto exista;
   si se pasa, el ajuste es recortar el tramo A, que es el caro.
+
+## D19 bis — Enmienda por medición: el tramo A se amplía a 130 días
+
+- **Qué**: el tramo A pasa de `2025-07-09 → 2025-10-08` (92 días) a
+  **`2025-06-01 → 2025-10-08`** (130 días). El tramo B no cambia.
+- **Por qué**: el tramo B se había estimado en 0,27 GiB/día escalando por el
+  tamaño del `.gz`. Medido de verdad son **0,093 GiB/día**, un tercio, porque
+  en el formato reducido los `PushEvent` no traen commits y la proyección de
+  D18 los deja en nada. Eso libera unos 54 GiB del presupuesto.
+- **Alternativas**: dejar el margen sin usar, o gastarlo en alargar el tramo B
+  hacia atrás, que no aporta nada porque el tramo B ya llega hasta ayer.
+- **Coste**: el margen baja del 10 % previsto a... en realidad sube al 17 %,
+  porque la medición corrigió a la baja. Sigue dependiendo de que la provisión
+  del 15 % para silver se confirme al medirlo.

@@ -286,3 +286,34 @@ Margen: 10 %. Cobertura temporal: **13 meses**.
 
 El 0,27 GiB/día del tramo B está escalado por el tamaño del `.gz` y **no está
 medido**: hay que confirmarlo ejecutando bronze sobre un día del formato nuevo.
+
+### Día del tramo B medido: 2026-08-12 (formato reducido)
+
+| Medida | Valor |
+|---|---|
+| Descarga | 24 de 24 horas, 530.915.632 B (0,494 GiB), 7,0 s a 72,82 MiB/s |
+| Eventos | **3.925.040** |
+| Bronze (zstd + proyección) | 99.366.664 B (**0,093 GiB**) |
+| Ratio bronze/origen | **0,187×** |
+| Duración del job | 15,7 s |
+
+**Tres veces más barato que la estimación** de 0,27 GiB/día. El motivo: en el
+formato reducido los `PushEvent` no traen array de commits, y al proyectarlos a
+las cinco columnas extraídas queda casi nada. Nótese que tiene **más eventos**
+que el día del tramo A (3.925.040 frente a 3.794.323) y ocupa una décima parte.
+
+### Reparto corregido del presupuesto (D19 enmendada)
+
+| Tramo | Días | Bronze/día | Bronze |
+|---|---:|---:|---:|
+| A — rico `2025-06-01 → 2025-10-08` | 130 | 1,078 GiB (medido) | 140,1 GiB |
+| Hueco `2025-10-09 → 10-14` (D13) | 6 | — | 0 |
+| B — actual `2025-10-15 → 2026-08-15` | 305 | 0,093 GiB (medido) | 28,4 GiB |
+| **Bronze total** | **435** | | **168,5 GiB** |
+| Provisión de silver (15 %, sin medir) | | | 25,3 GiB |
+| **Total** | | | **193,8 GiB** de 232,8 |
+
+Margen: **17 %**. Cobertura temporal: **14,5 meses**.
+
+El tramo A gana 38 días respecto al reparto anterior gracias a la medición del
+tramo B. Silver sigue siendo la única cifra sin medir del cálculo.
