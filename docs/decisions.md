@@ -278,3 +278,18 @@ Sustituye a D11.
 - **Coste**: el margen baja del 10 % previsto a... en realidad sube al 17 %,
   porque la medición corrigió a la baja. Sigue dependiendo de que la provisión
   del 15 % para silver se confirme al medirlo.
+
+## D20 — Los jobs limpian el staging huérfano de Spark al arrancar
+
+- **Qué**: `bronze.py` borra los directorios `.spark-staging-*` del destino
+  antes de escribir.
+- **Alternativas**: confiar en que ningún job falle, o limpiar a mano de vez en
+  cuando.
+- **Por qué**: con `partitionOverwriteMode=dynamic`, Spark escribe en un
+  temporal y lo promueve al final; si el job muere antes, el temporal se queda.
+  Se detectó uno de **2,912 GiB** de un intento fallido, más del doble de lo que
+  ocupaba la partición buena. En un backfill de 435 días esto son cientos de GiB
+  de basura silenciosa, y con el presupuesto de D16 lo revienta sin avisar.
+- **Coste**: si dos jobs corrieran a la vez sobre el mismo destino, uno borraría
+  el staging del otro. El backfill es secuencial por diseño, así que no aplica,
+  pero queda dicho por si algún día se paraleliza.

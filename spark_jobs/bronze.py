@@ -29,6 +29,24 @@ def tam_directorio(ruta: Path) -> int:
     return sum(f.stat().st_size for f in ruta.rglob("*") if f.is_file())
 
 
+def limpiar_staging(destino: Path) -> None:
+    """Borra los .spark-staging huerfanos de ejecuciones que fallaron.
+
+    Con partitionOverwriteMode=dynamic, Spark escribe primero en un directorio
+    temporal y lo promueve al final. Si el job muere antes, ese temporal se
+    queda ahi para siempre. En un backfill de cientos de dias eso son cientos
+    de GiB de basura silenciosa, asi que se limpia al arrancar en lugar de
+    confiar en que ningun job vuelva a fallar.
+    """
+    if not destino.exists():
+        return
+    for resto in destino.glob(".spark-staging-*"):
+        if resto.is_dir():
+            tam = tam_directorio(resto)
+            shutil.rmtree(resto, ignore_errors=True)
+            print(f"staging huerfano borrado: {resto.name} ({tam/1024**3:.3f} GiB)")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--fecha", required=True, help="YYYY-MM-DD")
@@ -51,6 +69,8 @@ def main() -> int:
     ficheros = sorted(origen.glob("*.json.gz"))
     bytes_origen = sum(f.stat().st_size for f in ficheros)
     print(f"{len(ficheros)} ficheros, {bytes_origen:,} B comprimidos")
+
+    limpiar_staging(destino)
 
     spark = crear_sesion("bronze")
     inicio = time.monotonic()
