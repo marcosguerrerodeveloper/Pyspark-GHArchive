@@ -111,10 +111,13 @@ def main() -> int:
             transcurrido = time.monotonic() - inicio_global
             ritmo = transcurrido / hechos
             faltan = (len(lista) - i) * ritmo
+            # flush explicito: al redirigir a fichero, Python bufferea por
+            # bloques y el progreso de un backfill de horas no se ve hasta que
+            # termina, que es justo cuando ya no sirve.
             print(f"[{i}/{len(lista)}] {fecha}: {m['filas']:,} filas, "
                   f"{m['bytes_bronze']/1024**3:.3f} GiB, {m['segundos']}s "
                   f"| disco {uso_gib(raiz):.1f} GiB "
-                  f"| faltan ~{faltan/3600:.1f}h")
+                  f"| faltan ~{faltan/3600:.1f}h", flush=True)
 
         except Exception as exc:
             fallidos += 1
