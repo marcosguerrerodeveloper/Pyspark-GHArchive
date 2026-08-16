@@ -196,3 +196,71 @@ un histórico, no un documento de estado.
   el pico real es bastante menor que esa suma.
 - **Coste**: el margen es cómodo pero no infinito, y obliga a que el borrado
   del crudo vaya al día en vez de acumularse hasta el final del backfill.
+
+## D16 — Presupuesto de disco: 250 GB, fijado por el autor
+
+- **Qué**: el proyecto no ocupa más de 250 GB (232,8 GiB) en total.
+- **Alternativas**: usar los 1.378 GB libres de `D:`.
+- **Por qué**: decisión del autor, que no quiere dedicar el disco entero a esto.
+- **Coste**: **revoca D11 y D15**. Un año de histórico rico ya no cabe, y la
+  ventana pasa a ser un problema de reparto de presupuesto en vez de una
+  elección libre.
+
+## D17 — Parquet con zstd en vez de snappy
+
+- **Qué**: el códec de compresión de Parquet es zstd en todos los jobs.
+- **Alternativas**: snappy, que es el que trae Spark por defecto.
+- **Por qué**: medido sobre el mismo día, snappy da 3,599 GiB y zstd 1,723 GiB,
+  un 52 % menos. **Con snappy el Parquet pesaba más que el `.gz` de origen**
+  (1,788×), porque bronze guarda texto JSON, que es muy redundante. Y zstd
+  además resultó **más rápido** (135 s frente a 223 s): hay tantos menos bytes
+  que escribir que compensa de sobra el coste de CPU.
+- **Coste**: zstd descomprime algo más lento que snappy en lecturas repetidas.
+  Con este perfil —se escribe una vez y se lee por lotes— no compensa lo otro.
+
+## D18 — Bronze proyecta el JSON íntegro solo en los tipos que lo necesitan
+
+- **Qué**: las cinco columnas extraídas (`id`, `type`, `created_at`,
+  `actor_login`, `repo_name`) se guardan para **todos** los eventos; el
+  `evento_json` completo solo para `PullRequestEvent`,
+  `PullRequestReviewEvent`, `PullRequestReviewCommentEvent`, `IssuesEvent` e
+  `IssueCommentEvent`.
+- **Alternativas**: guardar el JSON de todo (bronze puro), o descartar del todo
+  los eventos que no sirven a las preguntas.
+- **Por qué**: baja de 1,723 a 1,078 GiB por día (–37 %) y la duración del job a
+  53 s. La clave es que la pregunta 3 solo necesita quién, dónde y cuándo, y eso
+  vive en las columnas extraídas: **ningún evento se pierde**, se pierde el
+  detalle de los que no lo usan. Descartar filas enteras sí habría roto la
+  pregunta 3.
+- **Coste**: si más adelante hiciera falta el payload de un tipo excluido —el
+  array de commits de `PushEvent`, por ejemplo— hay que reingerir ese rango.
+  Es el precio explícito de D16.
+
+## D19 — Ventana en dos tramos, a un lado y otro del cambio de formato
+
+Sustituye a D11.
+
+- **Qué**:
+  - **Tramo A, rico**: `2025-07-09 → 2025-10-08` (92 días, formato completo).
+  - **Hueco**: `2025-10-09 → 2025-10-14` excluido por D13.
+  - **Tramo B, actual**: `2025-10-15 → ayer` (~305 días, formato reducido),
+    prolongado a diario por el cron de la Fase 5.
+- **Alternativas**: un año limpio terminando en 2025-10-08 (el D11 original), o
+  usar solo el formato nuevo.
+- **Por qué**: el criterio es qué ve un reclutador al abrir el dashboard.
+  - **Termina ayer, no hace diez meses.** Un dashboard cuyo último dato es de
+    octubre de 2025 se lee como un proyecto abandonado, por muy buena que sea
+    la razón técnica.
+  - **Trece meses de cobertura** dan cohortes de retención con recorrido real.
+    Con los tres meses que permitiría el presupuesto en formato rico, la
+    pregunta 3 no tendría nada que enseñar.
+  - **El cambio de formato pasa a ser el argumento**, no el estorbo: el
+    dashboard muestra dos regímenes de datos y explica por qué, que es
+    exactamente el tipo de problema que aparece en un trabajo real.
+  - Las latencias de PR (D8) se derivan de los eventos, así que **funcionan en
+    los dos tramos**: la pregunta 2 cubre los trece meses. Solo el corte por
+    lenguaje queda limitado al tramo A.
+- **Coste**: ~182 GiB de bronze más una provisión del 15 % para silver, unos
+  209 GiB de los 232,8 disponibles. El margen es del 10 %, así que **la
+  provisión de silver hay que sustituirla por una medición** en cuanto exista;
+  si se pasa, el ajuste es recortar el tramo A, que es el caro.

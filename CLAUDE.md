@@ -134,6 +134,25 @@ Pages vía Actions.
 Workflow con cron diario que procesa el día anterior de forma incremental y
 regenera el dashboard.
 
+## Bitácora de sesiones
+
+### Al empezar una sesión
+
+Antes de tocar nada, lee los ficheros `docs/sesiones/sesionN.md` existentes (todos,
+en orden). Sirven para no repetir trabajo ya hecho ni volver a caer en errores ya
+diagnosticados. Si contradicen al código actual, manda el código.
+
+### Al terminar una sesión
+
+1. Escribe `docs/sesiones/sesionN.md` con el siguiente número libre (`sesion1.md`,
+   `sesion2.md`, ...). Nunca sobrescribas una sesión anterior.
+2. Contenido: qué se hizo, qué decisiones se tomaron, qué errores se cometieron y
+   cómo se resolvieron, qué queda pendiente y en qué punto exacto se retoma.
+3. Apaga todos los servicios que se hayan quedado corriendo: sesiones de Spark,
+   procesos en background, servidores de Evidence, descargas, contenedores, y
+   cualquier tarea lanzada durante la sesión. Confirma en el resumen que no queda
+   nada vivo.
+
 ## Lo que escribo yo, no tú
 
 - El README principal.

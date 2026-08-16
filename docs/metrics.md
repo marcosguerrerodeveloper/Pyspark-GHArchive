@@ -221,3 +221,68 @@ máquina del autor**. El tiempo real del backfill depende de la conexión
 doméstica y no se ha podido medir por el bloqueo de red (D10). A modo de orden
 de magnitud, 734 GiB a 10 MiB/s son unas 21 horas de descarga; a 50 MiB/s, algo
 más de 4. No es una cifra del proyecto hasta que se mida.
+
+### Descarga en local con WARP (2026-08-16)
+
+| Medida | Valor |
+|---|---|
+| Día descargado | 2025-08-13, 24 de 24 horas |
+| Bytes | 2.160.885.568 B — **idénticos a los del runner** |
+| Duración | 23,2 s con 6 conexiones |
+| Velocidad | **88,70 MiB/s** |
+
+La coincidencia byte a byte con la descarga de Actions confirma la integridad.
+A esta velocidad, el tiempo de descarga deja de ser una restricción del
+proyecto.
+
+---
+
+## Fase 2 — Bronze
+
+Fecha: 2026-08-16. Ryzen 7 5800X, `local[8]`, driver 8 GB.
+Día de prueba: 2025-08-13 (formato completo), **3.794.323 eventos**.
+
+### Compresión y proyección: tres configuraciones medidas
+
+| Configuración | Bronze | vs `.gz` | Duración |
+|---|---:|---:|---:|
+| snappy, JSON de todos los tipos | 3.864.141.412 B (3,599 GiB) | 1,788× | 222,9 s |
+| **zstd**, JSON de todos los tipos | 1.850.566.027 B (1,723 GiB) | 0,856× | 135,0 s |
+| **zstd + proyección por tipo** | 1.157.963.135 B (**1,078 GiB**) | **0,536×** | **53,3 s** |
+
+Dos hallazgos que no eran obvios:
+
+1. **Con snappy, el Parquet pesa más que el `.gz` de origen** (1,788×). Bronze
+   guarda el evento como texto JSON, que es muy redundante, y snappy prioriza
+   velocidad sobre ratio. Cambiar a zstd reduce a menos de la mitad **y además
+   es más rápido**, porque hay menos bytes que escribir a disco.
+2. La proyección por tipo quita otro 37 % y baja la duración a una cuarta parte
+   de la configuración inicial.
+
+### Proyección del backfill con estas cifras
+
+| Formato | Bronze por día |
+|---|---:|
+| Completo (hasta 2025-10-08) | 1,078 GiB |
+| Reducido (desde 2025-10-15) | ~0,27 GiB (sin medir, escalado por el tamaño del `.gz`) |
+
+Presupuesto del autor: **250 GB = 232,8 GiB**.
+
+**Silver está sin medir.** La reserva del 15 % que se aplica más abajo es una
+provisión, no una medición, y hay que sustituirla en cuanto silver exista.
+
+### Reparto del presupuesto de 250 GB (D19)
+
+| Tramo | Días | Bronze/día | Bronze |
+|---|---:|---:|---:|
+| A — rico `2025-07-09 → 2025-10-08` | 92 | 1,078 GiB | 99,2 GiB |
+| Hueco `2025-10-09 → 10-14` (D13) | 6 | — | 0 |
+| B — actual `2025-10-15 → 2026-08-15` | 305 | ~0,27 GiB | ~82,4 GiB |
+| **Bronze total** | **397** | | **~181,6 GiB** |
+| Provisión de silver (15 %, **sin medir**) | | | ~27,2 GiB |
+| **Total** | | | **~208,8 GiB** de 232,8 |
+
+Margen: 10 %. Cobertura temporal: **13 meses**.
+
+El 0,27 GiB/día del tramo B está escalado por el tamaño del `.gz` y **no está
+medido**: hay que confirmarlo ejecutando bronze sobre un día del formato nuevo.
