@@ -209,6 +209,18 @@ Descarga idempotente y reanudable de un rango de fechas.
 Criterio de aceptación: ejecutar dos veces seguidas el mismo rango; la segunda
 no descarga nada, no corrompe nada, y el manifiesto es idéntico.
 
+### Estado: IMPLEMENTADA y validada en Actions el 2026-08-16
+
+`ingest/descargar.py` cumple el criterio de aceptación: primera pasada
+`{'ok': 24}`, segunda `{'saltada': 24}` en 0,1 s.
+
+De paso resuelve la incógnita del volumen con una medición en vez de una
+extrapolación: un día completo son **2,012 GiB**, que proyectan **~734 GiB al
+año**, y eso confirma la ventana de D11 (D15).
+
+**Pendiente**: no se ha ejecutado nunca en la máquina del autor, por el bloqueo
+de red de D10. El backfill sigue bloqueado ahí, no en el código.
+
 **Checkpoint humano.**
 
 ---

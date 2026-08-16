@@ -96,10 +96,15 @@ la red local no alcanza `data.gharchive.org`; ver D10.
 | Campos temporales del PR | **0 %** |
 | `payload.commits` / `size` en `PushEvent` | **0 %** |
 
-### Extrapolación de volumen
+### Extrapolación de volumen — ⚠️ SUPERADA
+
+**Obsoleta.** Se conserva por trazabilidad, pero la cifra buena es la medición
+de un día completo de la Fase 1: **2,012 GiB/día y ~734 GiB/año**, no los
+~940 GiB que se proyectan aquí. La sobreestimación venía de asumir que la hora
+punta era representativa; la variación intradía real es de solo 1,35×.
 
 **No es una medición.** Se proyecta desde una única hora punta, así que es una
-cota alta. Pendiente de confirmar midiendo un día completo en la Fase 1.
+cota alta.
 
 Hay que proyectar por separado los dos formatos, porque pesan muy distinto: una
 hora punta del formato reducido son 21,83 MiB, y del formato completo entre
@@ -166,3 +171,53 @@ recupera el 15 de octubre.
 
 Resolución del acotamiento: **un día**. Sin bajar a la hora concreta, porque no
 cambia ninguna decisión: el tramo entero queda excluido por D13.
+
+---
+
+## Fase 1 — Ingesta
+
+Fecha: 2026-08-16. Ejecutado en `ubuntu-latest` (D10).
+
+### Día completo medido: 2025-08-13 (formato completo)
+
+Sustituye a la extrapolación desde una sola hora punta. **Esto sí es medición.**
+
+| Medida | Valor |
+|---|---|
+| Horas descargadas | 24 de 24 |
+| Horas ausentes (404) | 0 |
+| Tamaño del día | 2.160.885.568 B (**2,012 GiB**) |
+| Hora más pesada | 104.380.761 B (99,5 MiB) |
+| Hora más ligera | 77.055.856 B (73,5 MiB) |
+| Media por hora | 90.036.899 B (85,9 MiB) |
+| Duración total | 15,2 s con 6 conexiones |
+| Suma de tiempos por fichero | 86,8 s |
+| Velocidad media | 135,91 MiB/s |
+
+**La variación intradía es mucho menor de lo previsto**: entre la hora más
+ligera y la más pesada solo hay un factor de 1,35. La extrapolación anterior
+asumía que la hora punta era representativa del pico y que el resto caía mucho
+más, y sobreestimaba en un 28 %.
+
+| Proyección | Estimación previa | **Medida** |
+|---|---:|---:|
+| 1 día | ~2,6 GiB | **2,012 GiB** |
+| 1 año | ~940 GiB | **~734 GiB (0,717 TiB)** |
+
+### Verificación de idempotencia
+
+| Pasada | Resumen | Duración |
+|---|---|---:|
+| Primera | `{'ok': 24}` | 15,2 s |
+| Segunda | `{'saltada': 24}` | 0,1 s |
+
+Criterio de aceptación de la fase **cumplido**: la segunda pasada no descarga
+nada, no corrompe nada y el manifiesto queda idéntico.
+
+### Advertencia sobre la velocidad
+
+Los 135,91 MiB/s son del ancho de banda de un runner de GitHub, **no de la
+máquina del autor**. El tiempo real del backfill depende de la conexión
+doméstica y no se ha podido medir por el bloqueo de red (D10). A modo de orden
+de magnitud, 734 GiB a 10 MiB/s son unas 21 horas de descarga; a 50 MiB/s, algo
+más de 4. No es una cifra del proyecto hasta que se mida.

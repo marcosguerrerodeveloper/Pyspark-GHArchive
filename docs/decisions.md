@@ -184,3 +184,15 @@ un histórico, no un documento de estado.
   paraleliza la descarga de varias fechas sin tocar la máquina del autor.
 - **Coste**: cada iteración cuesta un ciclo de commit, push y espera. A cambio,
   el procedimiento queda registrado y es reproducible por cualquiera.
+
+## D15 — D11 se confirma: un año de histórico rico cabe en disco
+
+- **Qué**: se mantiene la ventana `2024-10-09 → 2025-10-08` del D11.
+- **Alternativas**: acortarla a seis meses, o filtrar tipos de evento en bronze,
+  que eran las dos salidas previstas si no cabía.
+- **Por qué**: medido un día completo real (2025-08-13) son 2,012 GiB, que
+  proyectan **~734 GiB al año** contra los 1.283 GiB libres de `D:`. Ocupa el
+  57 % del disco, y el `.gz` se borra en cuanto la hora entra en bronze, así que
+  el pico real es bastante menor que esa suma.
+- **Coste**: el margen es cómodo pero no infinito, y obliga a que el borrado
+  del crudo vaya al día en vez de acumularse hasta el final del backfill.
