@@ -106,3 +106,50 @@ cota alta. Pendiente de confirmar midiendo un día completo en la Fase 1.
 | 1 día | ~0,51 GiB | ~3,9 M |
 | 1 mes | ~15,3 GiB | ~117 M |
 | 1 año | ~187 GiB | ~1.422 M |
+
+### Comparación del esquema entre años
+
+Una hora (14:00–14:59 UTC) de cada año, descargada y analizada en Actions.
+
+| Fecha | Comprimido (MiB) | Eventos | `PullRequestEvent` | `PushEvent` | `[bot]` | Payload |
+|---|---:|---:|---:|---:|---:|---|
+| 2016-08-17 | 22,20 | 55.106 | 3.580 | 26.490 | 0,00 % | completo |
+| 2018-08-15 | 31,27 | 75.426 | 4.878 | 38.065 | 1,12 % | completo |
+| 2020-08-12 | 70,51 | 136.958 | 12.487 | 65.011 | 8,51 % | completo |
+| 2022-08-17 | 98,26 | 193.991 | 14.390 | 103.021 | 12,47 % | completo |
+| 2023-08-16 | 99,47 | 191.032 | 14.197 | 102.666 | 13,68 % | completo |
+| 2024-08-14 | 122,55 | 233.812 | 17.235 | 133.065 | 18,09 % | completo |
+| 2025-08-13 | 96,48 | 167.303 | 13.181 | 97.403 | 20,30 % | completo |
+| 2026-08-12 | 21,83 | 162.301 | 770 | 148.551 | 10,20 % | **reducido** |
+
+Cobertura de `payload.pull_request.base.repo.language` en el tramo completo:
+entre **85 % y 92 %**, estable en toda la serie. En el tramo reducido, 0 %.
+
+### Bisección del cambio de formato
+
+Cinco tandas para pasar de un rango de diez años a un día concreto.
+
+| Fecha | Eventos/hora | Payload |
+|---|---:|---|
+| 2025-09-10 | 168.867 | completo |
+| **2025-10-08** | **171.588** | **completo — último observado** |
+| 2025-10-09 | 1.346 | reducido |
+| 2025-10-10 | 591 | reducido |
+| 2025-10-11 | 592 | reducido |
+| 2025-10-12 | 595 | reducido |
+| 2025-10-13 | 588 | reducido |
+| 2025-10-14 | 872 | reducido |
+| **2025-10-15** | **141.879** | **reducido — volumen recuperado** |
+| 2025-10-16 | 143.988 | reducido |
+| 2025-10-17 | 144.571 | reducido |
+| 2025-10-18 | 147.168 | reducido |
+| 2025-10-19 | 144.785 | reducido |
+| 2025-11-12 | 148.543 | reducido |
+| 2026-07-08 | 159.060 | reducido |
+
+El cambio de payload ocurre entre el **8 y el 9 de octubre de 2025**, y viene
+acompañado de seis días de volumen colapsado (0,4 % de lo esperado) que se
+recupera el 15 de octubre.
+
+Resolución del acotamiento: **un día**. Sin bajar a la hora concreta, porque no
+cambia ninguna decisión: el tramo entero queda excluido por D13.

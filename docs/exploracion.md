@@ -1,177 +1,145 @@
 # Fase 0 — Reconocimiento: hallazgos y sus implicaciones
 
-Fichero inspeccionado: `2026-08-12-14.json.gz` (miércoles, 14:00–14:59 UTC).
 Fecha del análisis: 2026-08-16.
+Fichero de partida: `2026-08-12-14.json.gz` (miércoles, 14:00–14:59 UTC).
 
-Este documento recoge las conclusiones. Las tablas completas —esquema de cada
-payload, frecuencias, ejemplos crudos— están en el anexo
-[`exploracion_datos.md`](exploracion_datos.md), generado por
-`exploracion/analizar_hora.py`.
+Tablas completas en los anexos, generados por los scripts de `exploracion/`:
+
+- [`exploracion_datos.md`](exploracion_datos.md) — esquema, frecuencias y
+  ejemplos crudos de la hora de 2026.
+- [`exploracion_historico.md`](exploracion_historico.md) — comparación del
+  esquema entre 2016 y 2026.
 
 ---
 
-## El hallazgo que cambia el proyecto
+## El hallazgo: GH Archive cambió de formato el 9 de octubre de 2025
 
-**GH Archive sirve los payloads recortados.** No traen ni de lejos lo que
-devuelve la API de eventos de GitHub, y esto invalida dos supuestos sobre los
-que estaban formuladas las preguntas de negocio.
+La inspección de la hora de 2026 mostró unos payloads mucho más pobres de lo
+que documenta la API de eventos de GitHub. `payload.pull_request` traía cinco
+claves —`url`, `id`, `number`, `head`, `base`— y el `payload` de `PushEvent`
+otras cinco —`repository_id`, `push_id`, `ref`, `head`, `before`—, sin rastro
+de `created_at`, `merged_at`, `merged`, `user`, `language`, `commits` ni `size`.
 
-`payload.pull_request` contiene exactamente cinco claves, en el 100 % de los
-770 `PullRequestEvent` del fichero:
+Como eso no estaba documentado en ningún sitio, la duda era si el formato había
+sido siempre así o si cambió en algún punto. **Cambió**, y localizarlo por
+bisección costó cinco tandas en Actions:
 
-    url, id, number, head, base
+| Periodo | Payload | Eventos/hora | Lenguaje del repo |
+|---|---|---:|---|
+| 2016 → **2025-10-08** | **completo** | ~55.000 → 171.588 | **~90 %** |
+| 2025-10-09 → 2025-10-14 | recortado | **588 – 1.346** | no |
+| 2025-10-15 → 2026 | recortado | ~142.000 – 162.000 | no |
 
-Y nada más. **No existen** `created_at`, `updated_at`, `closed_at`,
-`merged_at`, `merged`, `user`, `additions`, `deletions`, `comments`,
-`review_comments` ni `language`.
+Dos cosas ocurrieron a la vez el 9 de octubre de 2025: el payload se redujo, y
+el volumen se desplomó durante seis días antes de recuperarse. Tiene toda la
+pinta de una migración de la fuente que salió mal y se estabilizó en un formato
+nuevo y más pobre.
 
-`payload` de `PushEvent` contiene otras cinco, en los 148.551 eventos:
+### El tramo 2025-10-09 → 2025-10-14 es inservible
 
-    repository_id, push_id, ref, head, before
-
-**No existen** `commits` ni `size` ni `distinct_size`.
-
-Verificado dos veces: primero con el analizador, y después leyendo eventos
-crudos del `.gz` a mano, porque un resultado así parece antes un fallo del
-código que un hecho de los datos. No lo es.
+No está recortado: está **vacío**. 588 eventos en una hora que debería tener
+150.000 es un 0,4 % de lo esperado. Esos seis días hay que excluirlos
+explícitamente, y no tratarlos como «días con poca actividad», porque
+contaminarían cualquier serie temporal y cualquier cohorte que los cruce.
 
 ---
 
 ## Efecto sobre las tres preguntas de negocio
 
-### Pregunta 1 — actividad de PRs generada por bots · **viable, pero recortada**
+La conclusión práctica es que **el histórico anterior a octubre de 2025 responde
+a las tres preguntas por completo**, y el periodo posterior solo responde a una
+parte. Eso convierte la elección de ventana en la decisión central del proyecto.
 
-La parte de bots se sostiene y bien. De los 162.301 eventos, **16.547 (10,20 %)
-los generan cuentas con login terminado en `[bot]`**, repartidos en 380 cuentas
-distintas. La cabeza de la distribución:
+### Pregunta 1 — actividad de PRs generada por bots · **viable y completa**
 
-| Bot | Eventos |
+En el histórico rico, `payload.pull_request.base.repo.language` está poblado en
+torno al **90 %** de forma estable desde 2016. **El corte por lenguaje sí es
+posible**, al contrario de lo que parecía al mirar solo 2026.
+
+La detección de bots por sufijo `[bot]` funciona en todo el histórico, y su
+evolución es una serie interesante por sí misma:
+
+| Año | Eventos de cuentas `[bot]` |
 |---|---:|
-| `github-actions[bot]` | 12.875 |
-| `dependabot[bot]` | 847 |
-| `renovate[bot]` | 380 |
-| `pull[bot]` | 357 |
-| `cursor[bot]` | 265 |
+| 2016 | 0,00 % |
+| 2018 | 1,12 % |
+| 2020 | 8,51 % |
+| 2022 | 12,47 % |
+| 2023 | 13,68 % |
+| 2024 | 18,09 % |
+| 2025 | 20,30 % |
 
-Y hay señal aprovechable para la parte de *agentes*, que era la mitad
-interesante de la pregunta: `cursor[bot]`, `devin-ai-integration[bot]`,
-`chatgpt-codex-connector[bot]`, `claude[bot]`, `coderabbitai[bot]`,
-`arena-ai-coding-agent[bot]`. Son distinguibles por login, así que la
-separación entre automatización clásica (CI, dependencias) y agentes de IA es
-defendible con los datos, sin heurísticas frágiles.
+Y en la muestra de 2026 aparecen agentes de IA identificables por login
+—`cursor[bot]`, `devin-ai-integration[bot]`, `chatgpt-codex-connector[bot]`,
+`claude[bot]`, `coderabbitai[bot]`—, lo que permite separar automatización
+clásica de agentes sin heurísticas frágiles.
 
-**Lo que se pierde: el corte por lenguaje del repo.** Se comprobaron cuatro
-rutas candidatas y **ninguna existe**, con 0 % de cobertura. El objeto `repo`
-solo trae `id`, `name` y `url`. Era el supuesto que `CLAUDE.md` marcaba como
-crítico y no dado por bueno; hizo bien en no darlo por bueno.
+**Cuidado al leer esa tabla**: el 10,20 % de la hora de 2026 **no es
+comparable** con las cifras anteriores, porque la composición de eventos cambió
+con el formato. No es que los bots hayan bajado.
 
-Salidas posibles, en orden de coste:
+### Pregunta 2 — latencia hasta primer review y hasta merge · **viable**
 
-1. **Reformular la pregunta sin lenguaje** — evolución de bots por tiempo, tipo
-   de bot y tamaño de repo. Coste cero, y sigue respondiendo a lo esencial.
-2. **Enriquecer con la API de GitHub** — 5.000 peticiones/hora autenticado, y
-   el número de repos distintos es alto. Introduce una dependencia de red y de
-   token que choca con «todo corre en Actions gratis».
-3. **Derivar un proxy del lenguaje** desde las extensiones de fichero, que no
-   están: no hay array de commits. Descartada.
+En el histórico rico están `created_at`, `merged_at` y `closed_at` al 100 %, así
+que la latencia se lee directamente.
 
-Recomiendo la 1, con la limitación dicha en el README. Es tuya la decisión.
+Aun así conviene **derivarla también de las marcas de tiempo de los eventos**,
+uniendo por `payload.pull_request.id`: es la única vía que funciona en ambos
+formatos, y mide cuándo GitHub emitió el hecho en lugar de cuándo alguien dice
+que ocurrió. Tener las dos permite además contrastarlas, que es un control de
+calidad gratis.
 
-### Pregunta 2 — latencia hasta primer review y hasta merge · **viable por otra vía**
-
-No se puede leer de ningún campo, porque no hay campos temporales. Pero **sí se
-puede derivar de los `created_at` de los propios eventos**, uniéndolos por
-`payload.pull_request.id`, que está presente al 100 % en `PullRequestEvent`,
-`PullRequestReviewEvent` y `PullRequestReviewCommentEvent`.
-
-Y hay una facilidad inesperada: `payload.action` trae **`merged` como valor
-propio**, no hay que inferirlo de `closed` + flag.
-
-| Acción | Eventos |
-|---|---:|
-| `opened` | 265 |
-| `merged` | 245 |
-| `labeled` | 216 |
-| `unlabeled` | 25 |
-| `closed` | 10 |
-| `assigned` | 8 |
-| `reopened` | 1 |
-
-Así que la latencia sale de restar marcas de tiempo entre eventos del mismo
-`pull_request.id`. Es más trabajo que leer un campo y en realidad es una
-construcción más honesta: mide cuándo GitHub emitió el hecho, no cuándo alguien
-dice que ocurrió.
-
-**El precio es que esto amplifica el problema de la censura por los bordes**,
-que ya estaba anotado en el plan. Un PR abierto antes del inicio de la ventana
-no tiene evento `opened` observable, y su merge aparecerá huérfano. Un PR
-abierto al final no tiene aún su merge. Ambos casos hay que excluirlos
-explícitamente por cohorte de apertura, no dejarlos entrar y sesgar la media.
+Ojo con un detalle que cambia con el formato: hasta 2025-10-08 las acciones
+observadas son solo `opened`, `closed` y `reopened`, y el merge se infiere de
+`closed` + `merged=true`. Desde el formato nuevo aparece `merged` como acción
+propia, junto a `labeled`, `unlabeled` y `assigned`. **El código que interprete
+acciones tiene que soportar ambos convenios.**
 
 ### Pregunta 3 — retención de contribuyentes por cohortes · **intacta**
 
-No la afecta el recorte. Necesita `actor.login`, `repo.name` y `created_at`,
-los tres presentes al 100 %. Es la pregunta más sólida de las tres.
+Solo necesita `actor.login`, `repo.name` y `created_at`, presentes al 100 % en
+todo el rango. Es la pregunta más sólida, y la única que no sufre el cambio.
 
 ---
 
 ## Otros puntos del entregable
 
-**Duplicados por `id`.** Uno solo en 162.301 eventos: el `id` `13173052275`
-aparece dos veces, y las dos líneas son **byte a byte idénticas**. Es un
-duplicado exacto, no dos versiones divergentes del mismo evento, así que
-deduplicar por `id` es seguro y no hay que decidir cuál gana.
+**Duplicados por `id`.** Uno solo en 162.301 eventos (`13173052275`), y las dos
+líneas son **byte a byte idénticas**. Deduplicar por `id` es seguro y no hay que
+decidir qué versión gana.
 
-**Cobertura temporal.** `created_at` va de `14:00:00Z` a `14:59:59Z`: el
-fichero cubre su hora completa y no se desborda. Cero líneas no parseables.
+**Cobertura temporal.** `created_at` va de `14:00:00Z` a `14:59:59Z`: la hora
+está completa y no se desborda. Cero líneas no parseables.
 
-**Distribución de tipos.** `PushEvent` es el 91,53 % de los eventos, y ahora su
-payload es diminuto. Los cuatro tipos que sostienen las preguntas de negocio
-(`PullRequestEvent`, `PullRequestReviewEvent`, `IssuesEvent`,
-`PullRequestReviewCommentEvent`) suman **1.606 eventos, el 0,99 %**.
+**Truncamiento de commits en `PushEvent`.** En el histórico rico existen
+`commits`, `size` y `distinct_size` al 100 %, así que la comprobación de
+truncamiento aplica ahí y hay que contar con `size`, nunca con `len(commits)`.
+En el formato nuevo la pregunta desaparece: no hay array que truncar.
 
----
-
-## Volumen, y qué implica para la ventana histórica
-
-Medido sobre esta hora:
-
-| Medida | Valor |
-|---|---|
-| Comprimido | 22.891.223 B (21,83 MiB) |
-| Descomprimido | 111.671.173 B (106,50 MiB) |
-| Ratio | 4,88× |
-| Eventos | 162.301 |
-
-Extrapolado a 24 h y a un año — **y esto es una extrapolación, no una
-medición**: 14:00 UTC de un miércoles es franja punta (solape Europa/EEUU), así
-que estas cifras son una cota alta, probablemente por bastante margen.
-
-| Horizonte | Comprimido | Eventos |
-|---|---:|---:|
-| 1 día | ~0,51 GiB | ~3,9 M |
-| 1 mes | ~15,3 GiB | ~117 M |
-| 1 año | ~187 GiB | ~1.422 M |
-
-Con 1.378 GB libres en `D:`, **un año entero cabe con holgura** incluso en el
-escenario pesimista, y eso antes de convertir a Parquet, donde el recorte de
-payloads juega a favor. La restricción real no será el disco, sino el tiempo de
-descarga con el tope de 6 conexiones.
+**Volumen.** El pico está en 2024 (122,55 MiB comprimidos por hora punta) y el
+formato nuevo pesa una quinta parte (21,83 MiB). Un año de histórico rico ronda
+el orden de 1 TiB comprimido en hora punta extrapolada, lo que **ya no cabe
+holgado** en los 1.378 GB de `D:` si se toma el año entero sin filtrar. Esta es
+la restricción que decide la ventana, y hay que medirla sobre un día completo
+antes de comprometerse.
 
 ---
 
-## Decisiones que quedan abiertas para el checkpoint
+## Lo que propongo
 
-1. **Qué hacemos con la pregunta 1**: reformularla sin lenguaje (recomendado),
-   o aceptar la dependencia de la API de GitHub para enriquecer.
-2. **Ventana histórica**: ya hay cifras para decidirla. Para cohortes de
-   retención con sentido, cuanto más largo mejor; un año parece el punto
-   razonable entre señal y tiempo de descarga.
-3. **Qué guarda bronze**: con `PushEvent` al 91,53 % de las filas pero con un
-   payload de cinco campos, guardarlo todo ya no es caro. Se inclina la balanza
-   hacia no filtrar por tipo, contra lo que suponía el plan.
-4. **Si una sola hora basta**: este recorte de payloads no estaba documentado
-   ni era esperable. Cabe la duda razonable de si el formato cambió en algún
-   momento del histórico, y eso rompería el backfill a mitad. Revisar una hora
-   de hace uno y tres años cuesta minutos y ahora sale casi gratis, porque el
-   workflow de Actions ya está montado y parametrizado por fecha.
+1. **Ventana histórica: un año que termine el 2025-10-08**, es decir
+   `2024-10-09 → 2025-10-08`. Esquema homogéneo, payload completo, lenguaje
+   disponible, cohortes de doce meses para retención, y evita de un plumazo
+   tanto el tramo degradado como el cambio de formato.
+2. **El pipeline soporta los dos esquemas** desde el principio, con el formato
+   detectado por presencia de campos y no por fecha. El incremental diario de
+   la Fase 5 vivirá en el formato nuevo, así que no es opcional.
+3. **El tramo 2025-10-09 → 2025-10-14 se excluye explícitamente**, registrado
+   como hueco conocido y propagado como metadato hasta el dashboard.
+4. **El dashboard marca visualmente el corte** del 9 de octubre de 2025. Una
+   serie que cruce esa fecha sin avisar sería engañosa.
+5. **Antes de la Fase 1 hay que medir un día completo** para sustituir la
+   extrapolación por una cifra real y cerrar el tamaño del backfill.
+
+Y sigue pendiente el bloqueo de red (D10): el backfill corre en local por
+diseño, y esta máquina no alcanza a GH Archive.

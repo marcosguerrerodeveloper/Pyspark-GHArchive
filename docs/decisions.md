@@ -119,3 +119,68 @@ qué me cuesta.
 - **Coste**: **no resuelve el backfill grande**, que debe correr en local por
   diseño. Si el bloqueo persiste, la Fase 1 se queda sin máquina donde correr y
   habrá que decidir entre VPN o replantear dónde vive el backfill.
+
+---
+
+## Revisión de D7 y D8 (2026-08-16)
+
+Ambas se tomaron mirando **solo** una hora de 2026, y la comparación entre años
+las deja obsoletas en parte. Se conservan porque el registro de decisiones es
+un histórico, no un documento de estado.
+
+- **D7 queda revocada.** El lenguaje del repo **sí existe** en
+  `payload.pull_request.base.repo.language`, con ~90 % de cobertura estable
+  entre 2016 y 2025-10-08. La pregunta 1 conserva el corte por lenguaje si la
+  ventana se sitúa en el histórico rico. Lo que era cierto —y sigue siéndolo—
+  es que en el formato posterior a 2025-10-09 no está.
+- **D8 se mantiene, pero por otro motivo.** Los campos temporales sí existen en
+  el histórico rico, así que la latencia se puede leer. Derivarla igualmente de
+  los eventos deja de ser una necesidad y pasa a ser una elección: es la única
+  vía que funciona en los dos formatos, y sirve de contraste contra los campos.
+
+## D11 — Ventana histórica: 2024-10-09 → 2025-10-08
+
+- **Qué**: un año de backfill que termina justo antes del cambio de formato.
+- **Alternativas**: histórico más largo (varios años), o ventana reciente que
+  incluya el formato nuevo.
+- **Por qué**: es el tramo más largo con esquema homogéneo y payload completo
+  que cabe en un año natural. Da cohortes de doce meses para la pregunta 3,
+  lenguaje para la 1 y campos temporales para la 2, y esquiva tanto el tramo
+  degradado como la frontera de formato.
+- **Coste**: los datos terminan en octubre de 2025, así que el dashboard no
+  será "actual" en su serie rica. El incremental diario aportará datos nuevos,
+  pero con métricas limitadas y visualmente separados.
+
+## D12 — El pipeline soporta los dos esquemas, detectados por campos
+
+- **Qué**: bronze y silver aceptan el formato completo y el reducido, decidiendo
+  por presencia de campos y no por fecha.
+- **Alternativas**: soportar solo el formato rico y congelar el proyecto en
+  octubre de 2025, o soportar solo el nuevo y renunciar al histórico.
+- **Por qué**: la Fase 5 exige un cron diario, que necesariamente corre sobre
+  el formato nuevo. Discriminar por fecha codificaría el 2025-10-09 en el
+  código, y si la fuente vuelve a cambiar habría que tocarlo otra vez.
+- **Coste**: el esquema de silver tendrá columnas nulas en el tramo reciente
+  (lenguaje, latencias, conteo de commits), y los tests de calidad deben
+  tolerarlo por tramo en vez de exigir cobertura uniforme.
+
+## D13 — El tramo 2025-10-09 → 2025-10-14 se excluye como hueco conocido
+
+- **Qué**: seis días marcados como no utilizables, no como días flojos.
+- **Alternativas**: ingerirlos y dejar que el análisis los absorba.
+- **Por qué**: traen entre 588 y 1.346 eventos por hora frente a los ~150.000
+  esperados, un 0,4 %. No son datos escasos, son datos ausentes, y una serie
+  temporal que los incluya muestra un desplome que no ocurrió en GitHub.
+- **Coste**: hay que arrastrar una lista de huecos conocidos desde la ingesta
+  hasta el dashboard. Queda fuera de la ventana de D11 de todos modos, pero el
+  mecanismo hace falta igual para el incremental.
+
+## D14 — La bisección del cambio de formato se hace en Actions
+
+- **Qué**: `comparar_horas.py` más un workflow parametrizado por lista de
+  fechas; cinco tandas para acotar el cambio de un rango de diez años a un día.
+- **Alternativas**: descargar el histórico en local y comparar allí.
+- **Por qué**: la red local no llega a GH Archive (D10), y el runner además
+  paraleliza la descarga de varias fechas sin tocar la máquina del autor.
+- **Coste**: cada iteración cuesta un ciclo de commit, push y espera. A cambio,
+  el procedimiento queda registrado y es reproducible por cualquiera.
