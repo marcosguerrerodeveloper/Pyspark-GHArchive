@@ -451,3 +451,30 @@ Margen: **8 %**. Cobertura: **12,5 meses**.
 Los seis días del hueco se saltaron solos. **El 2025-10-08 tiene un 29 % menos
 de eventos que el 07**, lo que sugiere que el cambio de formato ocurrió a media
 jornada del día 8 y no en la frontera limpia entre el 8 y el 9.
+
+---
+
+## Backfill completo — 2026-08-17
+
+Ejecutado en local con WARP. Encadenado día a día: descarga → bronze → borrado
+del crudo.
+
+| Medida | Valor |
+|---|---|
+| Días procesados | **359** (+1 ya hecho en pruebas = 360) |
+| Días fallidos | **0** |
+| Días saltados por hueco (D13) | 6 |
+| **Eventos** | **1.311.676.396** |
+| Bronze en disco | 149,36 GiB |
+| Uso total en disco | 153,28 GiB |
+| Duración del tramo B | 3,00 h |
+| Tiempo de CPU en bronze | 2,34 h (suma por día) |
+| Particiones en bronze | 361 |
+
+**El backfill salió más barato de lo proyectado**: 149,36 GiB frente a los
+172,2 estimados (55 × 1,078 + 305 × 0,370). La estimación por muestreo mensual
+del tramo B sobreestimaba un 13 %, esta vez del lado seguro.
+
+Ninguna partición quedó a medias, no hubo staging huérfano y el crudo se borró
+solo, salvo los dos días de pruebas manuales que se ejecutaron sin
+`--borrar-crudo` (~3 GiB).
