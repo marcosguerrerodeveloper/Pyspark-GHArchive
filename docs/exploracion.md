@@ -117,11 +117,13 @@ truncamiento aplica ahí y hay que contar con `size`, nunca con `len(commits)`.
 En el formato nuevo la pregunta desaparece: no hay array que truncar.
 
 **Volumen.** El pico está en 2024 (122,55 MiB comprimidos por hora punta) y el
-formato nuevo pesa una quinta parte (21,83 MiB). Un año de histórico rico ronda
-el orden de 1 TiB comprimido en hora punta extrapolada, lo que **ya no cabe
-holgado** en los 1.378 GB de `D:` si se toma el año entero sin filtrar. Esta es
-la restricción que decide la ventana, y hay que medirla sobre un día completo
-antes de comprometerse.
+formato nuevo pesa una quinta parte (21,83 MiB). Extrapolando el formato
+completo a ~110 MiB por hora, un año ronda los **940 GiB** comprimidos, contra
+los 1.378 GB libres de `D:`. El `.gz` se borra en cuanto la hora entra en
+bronze, así que el pico real es bastante menor que esa suma, pero **el margen
+deja de ser holgado** y depende de que el borrado vaya al día. Es la restricción
+que decide la ventana, y hay que medirla sobre un día completo antes de
+comprometerse.
 
 ---
 

@@ -101,11 +101,24 @@ la red local no alcanza `data.gharchive.org`; ver D10.
 **No es una medición.** Se proyecta desde una única hora punta, así que es una
 cota alta. Pendiente de confirmar midiendo un día completo en la Fase 1.
 
-| Horizonte | Comprimido | Eventos |
+Hay que proyectar por separado los dos formatos, porque pesan muy distinto: una
+hora punta del formato reducido son 21,83 MiB, y del formato completo entre
+96 y 122 MiB. La ventana elegida en D11 cae **entera en el formato completo**.
+
+| Horizonte | Formato reducido | Formato completo (~110 MiB/h) |
 |---|---:|---:|
-| 1 día | ~0,51 GiB | ~3,9 M |
-| 1 mes | ~15,3 GiB | ~117 M |
-| 1 año | ~187 GiB | ~1.422 M |
+| 1 día | ~0,51 GiB | ~2,6 GiB |
+| 1 mes | ~15,3 GiB | ~78 GiB |
+| 1 año | ~187 GiB | **~940 GiB** |
+
+**Aviso sobre D11.** Con 1.378 GB libres en `D:`, un año de histórico rico en
+crudo (~940 GiB en el escenario de hora punta) deja sin sitio a bronze y
+silver. El `.gz` se borra en cuanto la hora está en bronze, así que el pico real
+es mucho menor que la suma, pero el margen ya no es holgado y depende de que el
+borrado vaya al día. Se decide con la medición de un día completo delante:
+si no cabe, las salidas son acortar la ventana a seis meses o filtrar tipos de
+evento en bronze —donde ahora sí compensa, porque en formato completo el array
+de commits de `PushEvent` es lo que más pesa.
 
 ### Comparación del esquema entre años
 
