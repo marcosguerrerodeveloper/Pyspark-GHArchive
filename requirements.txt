@@ -1,0 +1,17 @@
+# Fase 1 - ingesta
+httpx==0.28.1
+
+# Fase 2 - proceso
+# PySpark 3.5.x: compatible con Python 3.10 y JDK 17.
+# No se sube a 4.x por ahora para no arrastrar el cambio de requisitos de JVM
+# a mitad del backfill.
+pyspark==3.5.3
+
+# Fase 3 - modelado
+dbt-core==1.9.1
+dbt-duckdb==1.9.1
+duckdb==1.1.3
+
+# Utilidad y tests
+pandas==2.3.3
+pytest==8.3.4

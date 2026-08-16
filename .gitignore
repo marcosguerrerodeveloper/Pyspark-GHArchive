@@ -1,0 +1,43 @@
+# Datos: nunca al repo. El lago vive en GHA_DATA_DIR (por defecto D:/gharchive-data).
+data/
+*.json.gz
+*.ndjson
+*.part
+
+# DuckDB: el fichero de trabajo local no se commitea.
+# Los parquets agregados de gold si entran (ver dbt/target/gold_publicado/).
+*.duckdb
+*.duckdb.wal
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+.user.yml
+
+# Evidence / Node
+node_modules/
+dashboard/.evidence/
+dashboard/build/
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Power BI: los .pbix si se commitean (son el entregable); los temporales no.
+*.pbix.tmp
+
+# Sistema
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
