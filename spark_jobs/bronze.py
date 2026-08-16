@@ -25,32 +25,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sesion import crear_sesion, limpiar_staging, raiz_datos, tam_directorio  # noqa: E402
 
 
-def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--fecha", required=True, help="YYYY-MM-DD")
-    p.add_argument("--borrar-crudo", action="store_true",
-                   help="borra los .gz del dia una vez escrito bronze")
-    p.add_argument("--json-completo", default="todos",
-                   help="'todos' o lista de tipos separados por coma cuyo JSON "
-                        "integro se conserva; en el resto se guardan solo las "
-                        "columnas extraidas")
-    args = p.parse_args()
+TIPOS_JSON_COMPLETO = ("PullRequestEvent,PullRequestReviewEvent,"
+                       "PullRequestReviewCommentEvent,IssuesEvent,IssueCommentEvent")
 
+
+def procesar_dia(spark, fecha: str, json_completo: str = "todos",
+                 borrar_crudo: bool = False) -> dict:
+    """Escribe un dia en bronze. Devuelve las metricas del dia.
+
+    Separado de main() para que el backfill pueda encadenar cientos de dias
+    reutilizando una sola sesion de Spark: arrancar la JVM por dia anadiria mas
+    de una hora al total.
+    """
     raiz = Path(raiz_datos())
-    origen = raiz / "raw" / args.fecha
+    origen = raiz / "raw" / fecha
     destino = raiz / "bronze"
 
     if not origen.exists():
-        print(f"No hay datos crudos en {origen}")
-        return 1
+        raise FileNotFoundError(f"No hay datos crudos en {origen}")
 
     ficheros = sorted(origen.glob("*.json.gz"))
     bytes_origen = sum(f.stat().st_size for f in ficheros)
-    print(f"{len(ficheros)} ficheros, {bytes_origen:,} B comprimidos")
 
     limpiar_staging(destino)
-
-    spark = crear_sesion("bronze")
     inicio = time.monotonic()
 
     # text() en vez de json(): no infiere esquema, no parsea, no falla si el
@@ -66,16 +63,15 @@ def main() -> int:
         .withColumn("actor_login", F.get_json_object("value", "$.actor.login"))
         .withColumn("repo_name", F.get_json_object("value", "$.repo.name"))
         .withColumnRenamed("value", "evento_json")
-        .withColumn("event_date", F.lit(args.fecha))
+        .withColumn("event_date", F.lit(fecha))
     )
 
     # Proyeccion por tipo. Las cinco columnas extraidas se conservan siempre, y
     # con ellas la pregunta 3 (quien contribuye, donde y cuando) queda completa
     # para TODOS los eventos. El JSON integro solo hace falta en los tipos que
     # alimentan las preguntas 1 y 2, y es lo que se lleva casi todo el disco.
-    if args.json_completo != "todos":
-        tipos = [t.strip() for t in args.json_completo.split(",") if t.strip()]
-        print(f"JSON integro solo para: {tipos}")
+    if json_completo != "todos":
+        tipos = [t.strip() for t in json_completo.split(",") if t.strip()]
         bronze = bronze.withColumn(
             "evento_json",
             F.when(F.col("type").isin(tipos), F.col("evento_json")),
@@ -87,26 +83,55 @@ def main() -> int:
         .parquet(str(destino)))
 
     duracion = time.monotonic() - inicio
-    particion = destino / f"event_date={args.fecha}"
+    particion = destino / f"event_date={fecha}"
     bytes_destino = tam_directorio(particion)
 
-    # Se releen desde disco para contar: confirma que lo escrito es legible, no
+    # Se relee desde disco para contar: confirma que lo escrito es legible, no
     # solo que el job no reventó.
     filas = spark.read.parquet(str(particion)).count()
 
-    print(f"\nfilas escritas      : {filas:,}")
-    print(f"origen (.gz)        : {bytes_origen:,} B ({bytes_origen/1024**3:.3f} GiB)")
-    print(f"bronze (parquet)    : {bytes_destino:,} B ({bytes_destino/1024**3:.3f} GiB)")
-    print(f"ratio bronze/origen : {bytes_destino/bytes_origen:.3f}×")
-    print(f"duracion            : {duracion:.1f}s")
-    spark.stop()
-
-    if args.borrar_crudo:
+    if borrar_crudo:
         # Solo despues de haber releido y contado: si la lectura fallara, no se
-        # habria llegado hasta aqui.
+        # habria llegado hasta aqui y el crudo seguiria estando.
         shutil.rmtree(origen)
-        print(f"crudo borrado: {origen}")
 
+    return {
+        "fecha": fecha,
+        "filas": filas,
+        "bytes_origen": bytes_origen,
+        "bytes_bronze": bytes_destino,
+        "segundos": round(duracion, 1),
+        "crudo_borrado": borrar_crudo,
+    }
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--fecha", required=True, help="YYYY-MM-DD")
+    p.add_argument("--borrar-crudo", action="store_true",
+                   help="borra los .gz del dia una vez escrito bronze")
+    p.add_argument("--json-completo", default="todos",
+                   help="'todos' o lista de tipos separados por coma cuyo JSON "
+                        "integro se conserva; en el resto se guardan solo las "
+                        "columnas extraidas")
+    args = p.parse_args()
+
+    spark = crear_sesion("bronze")
+    try:
+        m = procesar_dia(spark, args.fecha, args.json_completo, args.borrar_crudo)
+    except FileNotFoundError as exc:
+        print(exc)
+        spark.stop()
+        return 1
+
+    print(f"\nfilas escritas      : {m['filas']:,}")
+    print(f"origen (.gz)        : {m['bytes_origen']:,} B "
+          f"({m['bytes_origen']/1024**3:.3f} GiB)")
+    print(f"bronze (parquet)    : {m['bytes_bronze']:,} B "
+          f"({m['bytes_bronze']/1024**3:.3f} GiB)")
+    print(f"ratio bronze/origen : {m['bytes_bronze']/m['bytes_origen']:.3f}x")
+    print(f"duracion            : {m['segundos']}s")
+    spark.stop()
     return 0
 
 

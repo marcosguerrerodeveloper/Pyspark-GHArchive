@@ -395,3 +395,59 @@ cuentas de bajo volumen, y es una limitación conocida del método.
 | **Total** | **421** | | **~202 GiB** de 232,8 |
 
 Margen: **13 %**.
+
+---
+
+## Fase 1 bis — El tramo B medido en serie (2026-08-17)
+
+La cifra de 0,093 GiB/día del tramo B salía de **un solo día**, 2026-08-12, y
+resultó ser el extremo barato de una serie decreciente. Medido por
+`Content-Length` (peticiones HEAD, sin descargar) un día de cada mes:
+
+| Fecha | `.gz` GiB | bronze estimado (×0,52) |
+|---|---:|---:|
+| 2025-10-15 | 0,824 | 0,429 |
+| 2025-11-15 | 0,744 | 0,387 |
+| 2025-12-15 | 0,896 | 0,466 |
+| 2026-01-15 | 0,855 | 0,445 |
+| 2026-02-15 | 0,876 | 0,456 |
+| 2026-03-15 | 0,830 | 0,432 |
+| 2026-04-15 | 0,737 | 0,383 |
+| 2026-05-15 | 0,567 | 0,295 |
+| 2026-06-15 | 0,526 | 0,273 |
+| 2026-07-15 | 0,484 | 0,252 |
+| 2026-08-12 | 0,494 | 0,257 |
+| **Media** | **0,712** | **0,370** |
+
+**El tramo B cuesta 113 GiB de bronze, no 28,4.** Casi cuatro veces más. El
+volumen de GH Archive cae de forma sostenida desde diciembre de 2025, y tomar
+el mes más reciente como representativo subestimaba el resto del año.
+
+Silver del tramo B **no** escala con bronze: depende del número de filas, que se
+mantiene en ~3,5 M/día. Se mantiene en ~0,09 GiB/día → 27,5 GiB.
+
+### Reparto final (D19 quater)
+
+| Concepto | Días | GiB/día | Total |
+|---|---:|---:|---:|
+| Tramo A bronze | 55 | 1,078 | 59,3 |
+| Tramo A silver | 55 | 0,124 | 6,8 |
+| Tramo B bronze | 305 | 0,370 | 113,0 |
+| Tramo B silver | 305 | 0,090 | 27,5 |
+| Crudo transitorio + gold | | | ~7 |
+| **Total** | **360** | | **~213,6 GiB** de 232,8 |
+
+Margen: **8 %**. Cobertura: **12,5 meses**.
+
+### Prueba del encadenado (10 días sobre el hueco)
+
+| Fecha | Filas | `.gz` GiB | bronze GiB | ratio | s |
+|---|---:|---:|---:|---:|---:|
+| 2025-10-07 | 3.875.261 | 1,964 | 1,036 | 0,528 | 38,4 |
+| 2025-10-08 | 2.769.429 | 1,419 | 0,749 | 0,528 | 29,6 |
+| 2025-10-15 | 3.465.925 | 0,824 | 0,429 | 0,521 | 19,8 |
+| 2025-10-16 | 3.487.226 | 0,818 | 0,425 | 0,519 | 19,6 |
+
+Los seis días del hueco se saltaron solos. **El 2025-10-08 tiene un 29 % menos
+de eventos que el 07**, lo que sugiere que el cambio de formato ocurrió a media
+jornada del día 8 y no en la frontera limpia entre el 8 y el 9.

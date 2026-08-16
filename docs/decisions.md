@@ -344,3 +344,26 @@ Sustituye a D11.
   margen bajaba al 9 % sin contar gold ni el crudo transitorio.
 - **Coste**: catorce días menos de histórico rico. La cobertura total queda en
   **14 meses** y el margen sube al 13 %, que ya absorbe gold y los picos.
+
+## D19 quater — Tramo A a 55 días: el tramo B costaba cuatro veces más
+
+- **Qué**: tramo A `2025-08-15 → 2025-10-08` (55 días). Tramo B sin cambios,
+  `2025-10-15 → 2026-08-15` (305 días).
+- **Por qué**: el coste del tramo B se había fijado midiendo **un solo día**
+  (2026-08-12, 0,093 GiB). Muestreando un día de cada mes por `Content-Length`,
+  la media real es 0,370 GiB/día: **113 GiB en vez de 28,4**. El volumen de GH
+  Archive decrece de forma sostenida desde diciembre de 2025, y agosto de 2026
+  era el punto más barato de la serie.
+- **Alternativas**: recortar el tramo B por el principio, que además habría
+  quitado los días más caros.
+- **Por qué no esa**: el tramo B empieza justo después del hueco, y ese
+  contraste inmediato con el tramo A es lo que hace legible el cambio de
+  formato en el dashboard. Recortarlo por ahí ahorra disco y rompe el
+  argumento.
+- **Coste**: el histórico rico baja de 116 a 55 días. El lenguaje del repo y los
+  campos temporales directos solo cubren mes y medio, y las latencias de PR
+  sufren censura fuerte en ese tramo. Se compensa con que las latencias
+  derivadas de eventos (D8) funcionan en los 12,5 meses completos.
+- **Lección**: es la cuarta vez que una cifra estimada desde una sola muestra
+  resulta estar mal. Ver la bitácora de la sesión 1, donde ya se anotó el mismo
+  patrón.
