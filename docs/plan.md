@@ -7,7 +7,7 @@ Fecha de redacción: 2026-08-16.
 
 ## 0. Estado de partida (medido, no supuesto)
 
-Repositorio vacío salvo `CLAUDE.md`. No hay git inicializado.
+Repositorio vacío salvo la especificación del proyecto. No hay git inicializado.
 
 | Recurso | Valor observado | Implicación |
 |---|---|---|
@@ -75,7 +75,6 @@ Puntos de diseño que sostienen esta forma:
 
 ```
 .
-├── CLAUDE.md
 ├── README.md                  ← lo escribe Marcos
 ├── .gitignore                 ← data/, *.gz, *.duckdb grandes, .venv
 ├── requirements.txt
@@ -110,7 +109,8 @@ La ruta del lago se lee de una variable de entorno (`GHA_DATA_DIR`, por defecto
 
 ### Fase −1 — Cimientos (nueva, precede a todo)
 
-No estaba en `CLAUDE.md` pero sin esto la Fase 0 no puede ni ejecutarse.
+No estaba en la especificación inicial pero sin esto la Fase 0 no puede ni
+ejecutarse.
 
 | # | Tarea | Criterio de aceptación |
 |---|---|---|
@@ -127,7 +127,7 @@ migramos a WSL2 antes de invertir nada más.
 
 Las cinco tareas hechas y verificadas. Detalle de las cifras en `metrics.md`.
 
-- Repo público: https://github.com/marcosguerrerodeveloper/Pyspark-GHArchive
+- Repo público: https://github.com/mguerrerov/Pyspark-GHArchive
 - JDK: Temurin 17.0.20, **64-Bit Server VM**. El JRE de 32 bits queda anulado
   por `JAVA_HOME`.
 - −1.5 necesitó dos correcciones, ambas registradas como decisiones: winutils
@@ -382,8 +382,8 @@ Cerradas el 2026-08-16 (detalle en `decisions.md`):
 
 1. **Entorno de ejecución**: Windows nativo con JDK 17 x64 + winutils.
 2. **Repositorio**: público en GitHub, creado con `gh` bajo la cuenta
-   `marcosguerrerodeveloper`.
-3. **Alcance de la Fase 0**: una sola hora, como pide `CLAUDE.md`.
+   `mguerrerov`.
+3. **Alcance de la Fase 0**: una sola hora, como pide la especificación.
 4. **Lago de datos**: `D:/gharchive-data`, vía `GHA_DATA_DIR`.
 
 Cerradas tras la Fase 0:
