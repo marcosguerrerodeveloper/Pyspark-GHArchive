@@ -478,3 +478,21 @@ del tramo B sobreestimaba un 13 %, esta vez del lado seguro.
 Ninguna partición quedó a medias, no hubo staging huérfano y el crudo se borró
 solo, salvo los dos días de pruebas manuales que se ejecutaron sin
 `--borrar-crudo` (~3 GiB).
+
+### Incidente: el shuffle llenó el disco de sistema
+
+| Momento | `C:` libre |
+|---|---:|
+| Inicio de la sesión | 90,5 GB |
+| Tras el backfill y silver | **0,5 GB** |
+| Tras limpiar los `blockmgr` huérfanos | **611,3 GB** |
+
+Liberados **610,80 GiB**, de los cuales 581,67 en un único `blockmgr` de un job
+muerto. Causas y arreglos en D24 y D25.
+
+Efecto del arreglo, mismo rango (7 días, 24.417.900 filas de bronze):
+
+| | Antes | Después |
+|---|---|---|
+| Resultado | `IOException: Espacio en disco insuficiente` | 2.912.405 filas |
+| Duración | abortaba | **112,3 s** |

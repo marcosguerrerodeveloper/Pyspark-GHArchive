@@ -367,3 +367,30 @@ Sustituye a D11.
 - **Lección**: es la cuarta vez que una cifra estimada desde una sola muestra
   resulta estar mal. Ver la bitácora de la sesión 1, donde ya se anotó el mismo
   patrón.
+
+## D24 — El scratch de Spark vive en `D:`, no en el temporal del sistema
+
+- **Qué**: `spark.local.dir` apunta a `D:/gharchive-data/spark-tmp`.
+- **Alternativas**: dejar el valor por defecto (`%TEMP%`, en `C:`).
+- **Por qué**: `C:` tenía 90 GB libres y `D:` 1,2 TB. Un `dropDuplicates` sobre
+  bronze completo generó **581 GiB en un solo `blockmgr`** y dejó el disco de
+  sistema **en 0,5 GB libres**, con Windows al borde de fallar. Los datos viven
+  en `D:`; el scratch que los procesa también debe.
+- **Coste**: ninguno de fondo. Conviene vigilar `spark-tmp` porque los restos de
+  un job muerto ya no se limpian solos al reiniciar como sí ocurre a veces en
+  `%TEMP%`.
+
+## D25 — La deduplicación va después de la proyección, nunca antes
+
+- **Qué**: `dropDuplicates(["evento_id"])` se aplica dentro de cada constructor
+  de silver, sobre columnas ya extraídas, en vez de sobre bronze entero.
+- **Alternativas**: deduplicar una sola vez sobre bronze y reutilizarlo para
+  las dos tablas, que era lo que hacía y parecía más eficiente.
+- **Por qué**: deduplicar arrastra al shuffle **todas** las columnas, y en
+  bronze eso incluye `evento_json`, el texto íntegro del evento y casi todo su
+  peso. Barajar 149 GiB para quedarse con una decena de duplicados es el peor
+  reparto de trabajo posible. Proyectando primero se barajan seis columnas
+  cortas: el rango que agotaba el disco se resuelve en **112 s**.
+- **Coste**: la deduplicación se ejecuta dos veces, una por tabla. Es
+  irrelevante comparado con lo que ahorra, y es correcto porque cada tabla tiene
+  su propio grano.
