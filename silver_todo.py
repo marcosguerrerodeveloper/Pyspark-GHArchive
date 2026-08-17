@@ -41,6 +41,12 @@ def main() -> int:
     p.add_argument("--hasta", required=True)
     p.add_argument("--rehacer", action="store_true",
                    help="ignora el registro y reprocesa todo")
+    p.add_argument("--dias-por-lote", type=int, default=7,
+                   help="dias que se procesan en una sola pasada de Spark. "
+                        "Agrupar reduce el coste de planificacion, que se "
+                        "pagaba 361 veces yendo dia a dia; a cambio, un corte "
+                        "cuesta el lote entero. Es seguro agrupar porque la "
+                        "deduplicacion es intra-dia (D27).")
     args = p.parse_args()
 
     raiz = Path(raiz_datos())
@@ -66,17 +72,23 @@ def main() -> int:
     inicio = time.monotonic()
     ok = fallos = 0
 
-    for i, fecha in enumerate(pendientes, 1):
-        # Bronze no cubre todos los dias del rango: el tramo A empieza el
-        # 2025-08-15 y el hueco de D13 no existe. Saltarlos es normal, no un
-        # fallo, y no debe contaminar el contador de errores.
-        if not (raiz / "bronze" / f"event_date={fecha}").exists():
-            print(f"[{i}/{len(pendientes)}] {fecha} sin bronze, se salta",
-                  flush=True)
-            continue
+    # Bronze no cubre todos los dias del rango: el tramo A empieza el
+    # 2025-08-15 y el hueco de D13 no existe. Se descartan antes de agrupar.
+    con_bronze = [f for f in pendientes
+                  if (raiz / "bronze" / f"event_date={f}").exists()]
+    saltados = len(pendientes) - len(con_bronze)
+    if saltados:
+        print(f"{saltados} dias del rango no estan en bronze, se saltan",
+              flush=True)
 
+    n = args.dias_por_lote
+    lotes = [con_bronze[k:k + n] for k in range(0, len(con_bronze), n)]
+    print(f"{len(lotes)} lotes de hasta {n} dias", flush=True)
+
+    for i, lote in enumerate(lotes, 1):
+        fecha = f"{lote[0]}..{lote[-1]}"
         try:
-            b = bronze_todo.filter(F.col("event_date") == fecha)
+            b = bronze_todo.filter(F.col("event_date").isin(lote))
             t0 = time.monotonic()
 
             d_ev = raiz / "silver" / "eventos"
@@ -101,14 +113,14 @@ def main() -> int:
             ok += 1
 
             ritmo = (time.monotonic() - inicio) / ok
-            faltan = (len(pendientes) - i) * ritmo
-            print(f"[{i}/{len(pendientes)}] {fecha}: "
+            faltan = (len(lotes) - i) * ritmo
+            print(f"[{i}/{len(lotes)}] {fecha}: "
                   f"eventos={n_ev:,} pr={n_pr:,} {m['segundos']}s "
                   f"| faltan ~{faltan/60:.0f} min", flush=True)
 
         except Exception as exc:
             fallos += 1
-            print(f"[{i}/{len(pendientes)}] {fecha} FALLO: "
+            print(f"[{i}/{len(lotes)}] {fecha} FALLO: "
                   f"{type(exc).__name__}: {exc}", flush=True)
 
     spark.stop()
