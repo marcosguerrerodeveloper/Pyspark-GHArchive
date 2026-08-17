@@ -313,6 +313,12 @@ Hechos, uno por pregunta de negocio:
 
 Tests de dbt en las claves: `unique`, `not_null`, `relationships`.
 
+### Estado: COMPLETADA el 2026-08-17
+
+Estrella en dbt-duckdb: **8 modelos y 40 tests en verde**. Tres hechos, uno por
+pregunta, con el grano documentado en el YAML. Ninguna clave es de una sola
+columna (D27). Decisiones D28–D31.
+
 **Checkpoint humano.**
 
 ---
@@ -327,6 +333,19 @@ Evidence.dev, tres páginas, una por pregunta de negocio. Ni una métrica más.
 
 Criterio de aceptación literal del proyecto: **un desconocido abre la URL y
 entiende algo en 10 segundos, sin clonar nada.**
+
+### Estado: EN LÍNEA desde el 2026-08-17
+
+**https://mguerrerov.github.io/Pyspark-GHArchive/**
+
+Cuatro páginas —portada más una por pregunta— construidas desde los Parquet
+agregados que exporta `exportar_gold.py` y que sí viven en el repo, porque el
+runner no tiene acceso al lago. El cambio de formato y el hueco de octubre se
+avisan en la propia interfaz.
+
+**Pendiente**: los datos publicados son todavía los de la ventana de
+desarrollo. Al terminar la regeneración de silver hay que reejecutar dbt,
+exportar y hacer push. Y los gráficos habrá que afinarlos con datos reales.
 
 **Checkpoint humano.**
 
