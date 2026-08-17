@@ -60,6 +60,11 @@ def crear_sesion(nombre: str, nucleos: int = 8, memoria: str = "8g",
         .config("spark.sql.parquet.compression.codec", codec)
         # Sin esto, escribir una particion que ya existe borra el resto.
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
+        # El shuffle va al temporal del sistema, que aqui esta en C: con 90 GB.
+        # Un dropDuplicates sobre bronze completo genero 581 GiB de blockmgr y
+        # dejo el disco de sistema en 0,5 GB. El scratch vive en D:, junto a los
+        # datos, donde hay sitio de sobra.
+        .config("spark.local.dir", str(Path(raiz_datos()) / "spark-tmp"))
         .getOrCreate()
     )
     sesion.sparkContext.setLogLevel("WARN")

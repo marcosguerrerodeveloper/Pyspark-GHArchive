@@ -60,7 +60,13 @@ def clasificar_actor(col_login):
 
 
 def construir_eventos(bronze):
-    """Tabla de eventos: tipado, sin el JSON, con el actor clasificado."""
+    """Tabla de eventos: tipado, sin el JSON, con el actor clasificado.
+
+    El dropDuplicates va DESPUES del select. Hacerlo antes obliga a Spark a
+    barajar tambien evento_json, que es el texto integro y casi todo el peso de
+    bronze: sobre el backfill completo eso genero 581 GiB de shuffle y lleno el
+    disco de sistema. Proyectando primero, se barajan seis columnas cortas.
+    """
     return (
         bronze
         .select(
@@ -74,6 +80,7 @@ def construir_eventos(bronze):
         )
         .withColumn("actor_es_bot", F.col("actor").endswith("[bot]"))
         .withColumn("actor_clase", clasificar_actor(F.col("actor")))
+        .dropDuplicates(["evento_id"])
     )
 
 
@@ -154,6 +161,9 @@ def construir_pr_eventos(bronze):
         .withColumn("actor_clase", clasificar_actor(F.col("actor")))
         .drop("pr_abierto_en_txt", "pr_mergeado_en_txt", "pr_cerrado_en_txt",
               "pr_merged_txt", "review_enviado_en_txt")
+        # Igual que en eventos: se deduplica sobre columnas ya extraidas, nunca
+        # arrastrando evento_json al shuffle.
+        .dropDuplicates(["evento_id"])
     )
 
 
@@ -206,17 +216,16 @@ def main() -> int:
         spark.stop()
         return 1
 
-    # Dedup por id. En la Fase 0 se vio que los duplicados son copias byte a
-    # byte, asi que quedarse con cualquiera de ellos es correcto y no hay que
+    # La deduplicacion por id ocurre dentro de cada constructor, ya sobre las
+    # columnas proyectadas. En la Fase 0 se vio que los duplicados son copias
+    # byte a byte, asi que quedarse con cualquiera es correcto y no hay que
     # decidir cual gana.
-    bronze_unico = bronze.dropDuplicates(["id"])
-
     n_eventos = n_pr = None
     if args.tabla in ("ambas", "eventos"):
-        n_eventos = escribir(construir_eventos(bronze_unico),
+        n_eventos = escribir(construir_eventos(bronze),
                              raiz / "silver" / "eventos", "eventos")
     if args.tabla in ("ambas", "pr_eventos"):
-        n_pr = escribir(construir_pr_eventos(bronze_unico),
+        n_pr = escribir(construir_pr_eventos(bronze),
                         raiz / "silver" / "pr_eventos", "pr_eventos")
 
     duracion = time.monotonic() - inicio
