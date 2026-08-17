@@ -534,3 +534,20 @@ Margen: **17 %**. El reparto proyectado en D19 quater daba ~213,6 GiB, así que
 la realidad quedó un 10 % por debajo.
 
 Discos tras el incidente: `C:` 611,3 GB libres, `D:` 1.229,9 GB libres.
+
+### Conciliación bronze ↔ silver
+
+| Medida | Valor |
+|---|---:|
+| Filas en bronze | 1.319.395.759 |
+| `id` únicos en bronze | 1.319.383.395 |
+| **Duplicados reales** | **12.364 (0,0009 %)** |
+| `silver/eventos` tras el job interrumpido | 1.308.416.532 |
+| **Filas perdidas** | **10.979.227 (0,83 %)** |
+
+La tasa de duplicados confirma lo visto en la Fase 0 (1 de cada 162.301) y
+descarta que la diferencia viniera de la deduplicación. Días con **cero**
+duplicados perdían igualmente hasta 144.480 filas, lo que señalaba a un
+truncamiento del job y no a un filtro.
+
+`silver/eventos` se regeneró por lotes. La comprobación que faltaba está en D26.

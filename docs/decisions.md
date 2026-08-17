@@ -394,3 +394,24 @@ Sustituye a D11.
 - **Coste**: la deduplicación se ejecuta dos veces, una por tabla. Es
   irrelevante comparado con lo que ahorra, y es correcto porque cada tabla tiene
   su propio grano.
+
+## D26 — Los tests concilian silver contra bronze, no solo su coherencia interna
+
+- **Qué**: se añade una comprobación que compara, partición a partición, el
+  número de filas de bronze con el de `silver/eventos`, y falla si alguna pierde
+  más del 0,1 %.
+- **Alternativas**: confiar en que un job que termina sin excepción ha escrito
+  todo.
+- **Por qué**: **las dieciséis comprobaciones anteriores pasaron en verde sobre
+  un silver al que le faltaban 10.979.227 filas.** El job que lo escribió murió
+  a mitad y dejó las 361 particiones creadas pero varias incompletas; como todos
+  los tests miraban la coherencia interna de silver —unicidad, nulos, rangos,
+  cobertura horaria—, ninguno podía detectar que faltara casi un 1 % de los
+  datos. Un dataset truncado es internamente coherente.
+- **Coste**: obliga a leer bronze entero en cada pasada de calidad, lo que
+  encarece el test. Se hace con `count` por partición y no con `countDistinct`,
+  que sobre 1.319 millones de filas tardaba más de diez minutos.
+- **Umbral**: 0,1 %. Los duplicados reales medidos sobre el backfill completo
+  son **12.364 de 1.319.395.759**, un 0,0009 %, así que el margen es amplio
+  frente a la deduplicación legítima y sigue siendo estrecho frente a una
+  pérdida real.

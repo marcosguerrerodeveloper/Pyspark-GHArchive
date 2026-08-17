@@ -149,6 +149,36 @@ def main() -> int:
                 pr.filter(F.col("es_merge").isNull()).count() == 0,
                 "hay es_merge nulos: revisa el coalesce")
 
+    print("\n7. Conciliacion bronze -> silver")
+    # El test que faltaba. Las dieciseis comprobaciones anteriores pasaron una
+    # vez sobre un silver al que le faltaban 10.979.227 filas, porque el job
+    # que lo escribio murio a medias: todas miran la coherencia interna de
+    # silver y ninguna preguntaba si silver tiene lo que bronze tenia.
+    bronze = (spark.read.parquet(str(raiz / "bronze"))
+              .filter((F.col("event_date") >= args.desde)
+                      & (F.col("event_date") <= args.hasta)))
+    por_dia_b = bronze.groupBy("event_date").agg(F.count("*").alias("b"))
+    por_dia_s = eventos.groupBy("event_date").agg(F.count("*").alias("s"))
+    comparado = por_dia_b.join(por_dia_s, "event_date", "full_outer").fillna(0)
+
+    # Se tolera una diferencia minima por la deduplicacion: los duplicados
+    # medidos sobre el backfill completo son 12.364 de 1.319 millones.
+    descuadres = (comparado
+                  .withColumn("dif", F.col("b") - F.col("s"))
+                  .filter(F.col("dif") > F.col("b") * 0.001)
+                  .orderBy(F.desc("dif")))
+    n_desc = descuadres.count()
+    r.comprobar("ninguna particion pierde filas frente a bronze", n_desc == 0,
+                f"{n_desc} dias descuadran; peor: " + "; ".join(
+                    f"{f['event_date']} bronze={f['b']:,} silver={f['s']:,}"
+                    for f in descuadres.limit(3).collect()))
+
+    totales = comparado.agg(F.sum("b").alias("b"), F.sum("s").alias("s")).first()
+    perdidas = (totales["b"] or 0) - (totales["s"] or 0)
+    r.comprobar("perdida total por debajo del 0,1%",
+                perdidas <= (totales["b"] or 1) * 0.001,
+                f"{perdidas:,} filas de diferencia sobre {totales['b']:,}")
+
     print(f"\n{r.pasados} comprobaciones pasadas, {len(r.fallos)} fallidas")
     spark.stop()
     if r.fallos:
