@@ -173,6 +173,11 @@ def main() -> int:
     p.add_argument("--fecha", help="un solo dia, YYYY-MM-DD")
     p.add_argument("--desde", help="YYYY-MM-DD")
     p.add_argument("--hasta", help="YYYY-MM-DD")
+    # Las dos tablas se escriben por separado para poder reanudar. Sobre 360
+    # dias una sola pasada dura demasiado, y si se corta a mitad se pierde
+    # tambien la tabla que ya estaba escrita.
+    p.add_argument("--tabla", default="ambas",
+                   choices=["ambas", "eventos", "pr_eventos"])
     args = p.parse_args()
 
     if not args.fecha and not (args.desde and args.hasta):
@@ -205,20 +210,22 @@ def main() -> int:
     # byte, asi que quedarse con cualquiera de ellos es correcto y no hay que
     # decidir cual gana.
     bronze_unico = bronze.dropDuplicates(["id"])
-    duplicados = leidas - bronze_unico.count()
 
-    eventos = construir_eventos(bronze_unico)
-    pr_eventos = construir_pr_eventos(bronze_unico)
-
-    n_eventos = escribir(eventos, raiz / "silver" / "eventos", "eventos")
-    n_pr = escribir(pr_eventos, raiz / "silver" / "pr_eventos", "pr_eventos")
+    n_eventos = n_pr = None
+    if args.tabla in ("ambas", "eventos"):
+        n_eventos = escribir(construir_eventos(bronze_unico),
+                             raiz / "silver" / "eventos", "eventos")
+    if args.tabla in ("ambas", "pr_eventos"):
+        n_pr = escribir(construir_pr_eventos(bronze_unico),
+                        raiz / "silver" / "pr_eventos", "pr_eventos")
 
     duracion = time.monotonic() - inicio
-    print(f"\nleidas de bronze : {leidas:,}")
-    print(f"duplicados por id: {duplicados:,}")
-    print(f"eventos          : {n_eventos:,}")
-    print(f"pr_eventos       : {n_pr:,}")
-    print(f"duracion         : {duracion:.1f}s")
+    print(f"\nleidas de bronze : {leidas:,}", flush=True)
+    if n_eventos is not None:
+        print(f"eventos          : {n_eventos:,}")
+    if n_pr is not None:
+        print(f"pr_eventos       : {n_pr:,}")
+    print(f"duracion         : {duracion:.1f}s", flush=True)
 
     spark.stop()
     return 0
