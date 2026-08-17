@@ -80,10 +80,19 @@ def main() -> int:
         print("No hay datos en el rango")
         return 1
 
-    print("1. Unicidad de evento_id")
-    distintos = eventos.select("evento_id").distinct().count()
-    r.comprobar("evento_id sin duplicados", distintos == total,
-                f"{total:,} filas pero {distintos:,} ids distintos")
+    print("1. Unicidad de evento_id dentro de cada dia")
+    # La unicidad es POR DIA, no global. En el formato reducido GH Archive
+    # reutiliza identificadores: el mismo id designa un PushEvent el
+    # 2025-11-18 y un PullRequestEvent el 2026-01-23. Exigir unicidad global
+    # daba por bueno borrar 3,58 millones de eventos reales.
+    distintos = eventos.select("evento_id", "event_date").distinct().count()
+    r.comprobar("evento_id unico dentro de su dia", distintos == total,
+                f"{total:,} filas pero {distintos:,} pares (id, fecha) distintos")
+
+    global_distintos = eventos.select("evento_id").distinct().count()
+    print(f"  (informativo) evento_id distintos en todo el rango: "
+          f"{global_distintos:,} sobre {total:,} filas — "
+          f"{total - global_distintos:,} reutilizaciones entre fechas)")
 
     print("\n2. created_at dentro del rango esperado")
     # Se formatea en Spark y se traen cadenas, no datetime. Traer un timestamp

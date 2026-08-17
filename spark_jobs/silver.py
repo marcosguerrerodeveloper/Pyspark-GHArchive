@@ -80,7 +80,11 @@ def construir_eventos(bronze):
         )
         .withColumn("actor_es_bot", F.col("actor").endswith("[bot]"))
         .withColumn("actor_clase", clasificar_actor(F.col("actor")))
-        .dropDuplicates(["evento_id"])
+        # Por (evento_id, event_date), NO solo por evento_id: en el formato
+        # reducido GH Archive reutiliza identificadores, y se comprobo que un
+        # mismo id designa un PushEvent el 2025-11-18 y un PullRequestEvent el
+        # 2026-01-23. Deduplicar globalmente borraba eventos reales.
+        .dropDuplicates(["evento_id", "event_date"])
     )
 
 
@@ -161,9 +165,10 @@ def construir_pr_eventos(bronze):
         .withColumn("actor_clase", clasificar_actor(F.col("actor")))
         .drop("pr_abierto_en_txt", "pr_mergeado_en_txt", "pr_cerrado_en_txt",
               "pr_merged_txt", "review_enviado_en_txt")
-        # Igual que en eventos: se deduplica sobre columnas ya extraidas, nunca
-        # arrastrando evento_json al shuffle.
-        .dropDuplicates(["evento_id"])
+        # Igual que en eventos: sobre columnas ya extraidas, nunca arrastrando
+        # evento_json al shuffle, y acotado al dia porque el id no es unico
+        # entre fechas en el formato reducido.
+        .dropDuplicates(["evento_id", "event_date"])
     )
 
 

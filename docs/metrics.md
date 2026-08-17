@@ -551,3 +551,41 @@ duplicados perdían igualmente hasta 144.480 filas, lo que señalaba a un
 truncamiento del job y no a un filtro.
 
 `silver/eventos` se regeneró por lotes. La comprobación que faltaba está en D26.
+
+### La reutilización de `id` en el formato reducido
+
+Rangos de `id` observados en bronze:
+
+| Día | Formato | `id` mínimo | `id` máximo |
+|---|---|---:|---:|
+| 2025-08-17 | completo | 53.449.103.959 | 53.467.007.112 |
+| 2025-11-18 | reducido | 4.737.530.937 | 6.061.418.692 |
+| 2025-12-15 | reducido | 5.293.764.589 | 6.755.921.995 |
+| 2026-01-20 | reducido | 5.916.361.921 | 7.661.761.232 |
+| 2026-08-12 | reducido | 13.136.792.391 | 17.522.520.212 |
+
+En el formato completo el rango de un día es estrecho y monótono creciente,
+como corresponde a un identificador global. En el reducido los rangos son
+anchos y **se solapan entre meses**.
+
+Prueba directa: de los 99.408 eventos que desaparecían del 2025-11-18, se
+tomaron 200 y los 200 reaparecen el **2026-01-23** como eventos distintos.
+
+| | 2025-11-18 | 2026-01-23 |
+|---|---|---|
+| Tipos | `PushEvent`, `CreateEvent`, `DeleteEvent` | `IssuesEvent`, `PullRequestEvent`, `WatchEvent`… |
+
+Colisiones medidas entre pares de días concretos: **0** entre 2025-11-18 y
+2025-12-15, **0** entre 2025-11-18 y 2026-01-20, **0** entre 2025-12-15 y
+2025-12-16. Las reutilizaciones no siguen la cercanía temporal.
+
+Impacto de deduplicar globalmente por lote:
+
+| Ámbito | Filas | Perdidas |
+|---|---:|---:|
+| Bronze lote 2 (nov–ene) | 325.204.396 | — |
+| `id` únicos en todo el lote | 322.969.287 | 2.235.109 |
+| Silver escrito | 322.969.287 | — |
+
+Silver coincidía **exactamente** con los ids únicos del lote: el job hacía lo
+que se le pidió, y lo que se le pedía estaba mal.

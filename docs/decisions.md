@@ -416,3 +416,30 @@ Sustituye a D11.
   son **12.364 de 1.319.395.759**, un 0,0009 %, así que el margen es amplio
   frente a la deduplicación legítima y sigue siendo estrecho frente a una
   pérdida real.
+
+## D27 — `id` no es único globalmente: la deduplicación se acota al día
+
+- **Qué**: `dropDuplicates(["evento_id", "event_date"])` en lugar de
+  `dropDuplicates(["evento_id"])`. La clave de un evento es **el par (id,
+  fecha)**, no el id solo.
+- **Alternativas**: seguir deduplicando por id, que es lo que dice la
+  especificación del proyecto («deduplicado por `id`») y lo que hace todo el
+  mundo con GH Archive.
+- **Por qué**: en el formato reducido **GH Archive reutiliza identificadores**.
+  Se tomaron 200 ids que desaparecían del 2025-11-18 y los 200 reaparecían el
+  2026-01-23 como eventos **distintos**: `PushEvent`, `CreateEvent` y
+  `DeleteEvent` en noviembre; `IssuesEvent`, `PullRequestEvent` y `WatchEvent`
+  en enero, con otro instante y otro actor. Deduplicar globalmente **borraba
+  3.582.807 eventos reales**, no duplicados.
+- **Cómo se vio**: la conciliación de D26 marcaba 287 días descuadrados. La
+  pérdida estaba solo en el tramo B, solo en los tipos de mayor volumen y
+  repartida uniformemente por hora — un patrón de filtro, no de truncamiento.
+  El rango de `id` lo confirmó: en el tramo A es estrecho y creciente (53.449M
+  → 53.467M en un día); en el tramo B es ancho y se solapa entre meses.
+- **Coste**: dos consecuencias que hay que arrastrar.
+  1. **`evento_id` no puede ser clave primaria en gold.** La clave del hecho es
+     `(event_date, evento_id)`, y los tests de dbt de la Fase 3 deben declararse
+     sobre el par, no sobre la columna sola.
+  2. La deduplicación ya no protege contra un mismo evento republicado en dos
+     días distintos. Medido: **cero casos** entre días consecutivos y entre
+     días lejanos, así que el riesgo real es nulo con estos datos.
