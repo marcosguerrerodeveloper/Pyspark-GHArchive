@@ -1,0 +1,161 @@
+version: 2
+
+models:
+  - name: dim_fecha
+    description: |
+      GRANO: un día natural de la ventana analizada.
+      Marca el tramo de formato de la fuente y los huecos conocidos, para que
+      el dashboard avise en lugar de dibujar una serie continua sobre datos
+      que no lo son.
+    columns:
+      - name: fecha
+        description: Clave de la dimensión.
+        tests: [unique, not_null]
+      - name: formato_fuente
+        description: |
+          `completo` hasta 2025-10-08, `reducido` desde el 2025-10-09, cuando
+          GH Archive recortó los payloads.
+        tests:
+          - accepted_values:
+              values: ["completo", "reducido"]
+      - name: es_hueco_conocido
+        description: Los seis días de 2025-10-09 a 2025-10-14 (D13).
+        tests: [not_null]
+
+  - name: dim_actor
+    description: |
+      GRANO: un actor (cuenta de GitHub) observado en la ventana.
+      La clasificación en humano / agente_ia / bot_dependencias / bot_ci /
+      bot_otro se decide en silver (D21); aquí solo se consolida.
+    columns:
+      - name: actor
+        description: Login de GitHub. Clave de la dimensión.
+        tests: [unique, not_null]
+      - name: actor_clase
+        tests:
+          - not_null
+          - accepted_values:
+              values: [humano, agente_ia, bot_dependencias, bot_ci, bot_otro]
+      - name: cohorte_mes
+        description: Primer mes en que se observa al actor en toda la ventana.
+        tests: [not_null]
+
+  - name: dim_repo
+    description: |
+      GRANO: un repositorio observado en la ventana.
+      El lenguaje solo existe en el tramo de formato completo, así que los
+      repos vistos únicamente después del 2025-10-08 lo tienen nulo. Es una
+      limitación de la fuente, no un fallo de carga.
+    columns:
+      - name: repo
+        description: "`propietario/nombre`. Clave de la dimensión."
+        tests: [unique, not_null]
+      - name: tiene_lenguaje
+        description: Permite filtrar sin confundir "sin lenguaje" con "nulo".
+        tests: [not_null]
+
+  - name: fct_pr_evento
+    description: |
+      PREGUNTA 1 — actividad de PRs generada por bots y agentes.
+      GRANO: un evento relacionado con un pull request.
+      CLAVE: (fecha, evento_id). No `evento_id` solo: GH Archive reutiliza
+      identificadores entre fechas en el formato reducido (D27).
+    tests:
+      - combinacion_unica:
+          combination_of_columns: [fecha, evento_id]
+    columns:
+      - name: evento_id
+        tests: [not_null]
+      - name: fecha
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_fecha')
+              field: fecha
+      - name: actor
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_actor')
+              field: actor
+      - name: repo
+        tests:
+          - relationships:
+              to: ref('dim_repo')
+              field: repo
+      - name: es_merge
+        description: Unifica los dos convenios de merge de la fuente.
+        tests: [not_null]
+      - name: esquema
+        tests:
+          - accepted_values:
+              values: [completo, reducido]
+
+  - name: fct_pr_ciclo
+    description: |
+      PREGUNTA 2 — latencia hasta el primer review y hasta el merge.
+      GRANO: un pull request.
+      CLAVE: (repo, pr_id).
+
+      Las latencias se derivan de los instantes de los eventos, no de campos
+      del payload (D8): es la única vía que funciona en los dos formatos.
+
+      CENSURA: filtrar SIEMPRE por `apertura_observada` y `cohorte_madura`
+      antes de promediar. Un PR abierto antes de la ventana no tiene apertura
+      observable, y uno abierto al final puede no haberse mergeado todavía;
+      incluirlos sesga la media a la baja.
+    tests:
+      - combinacion_unica:
+          combination_of_columns: [repo, pr_id]
+    columns:
+      - name: pr_id
+        tests: [not_null]
+      - name: repo
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_repo')
+              field: repo
+      - name: apertura_observada
+        tests: [not_null]
+      - name: cohorte_madura
+        tests: [not_null]
+      - name: horas_hasta_primer_review
+        description: Nulo si no se observó apertura o no hubo review.
+      - name: horas_hasta_merge
+        description: Nulo si no se observó apertura o el PR no se mergeó.
+
+  - name: fct_actividad_contribuyente
+    description: |
+      PREGUNTA 3 — proyectos que ganan o pierden contribuyentes, y retención
+      por cohortes.
+      GRANO: un actor, en un repo, en un mes.
+      CLAVE: (mes, repo, actor).
+
+      La cohorte es el primer mes del actor EN ESE REPO, no en todo GitHub:
+      la pregunta es sobre proyectos que ganan o pierden gente.
+
+      LIMITACIÓN: "nuevo" lo es solo respecto a la ventana observada. Quien
+      lleva años en un repo aparece como nuevo si su primera actividad dentro
+      de la ventana cae en el primer mes.
+    tests:
+      - combinacion_unica:
+          combination_of_columns: [mes, repo, actor]
+    columns:
+      - name: mes
+        tests: [not_null]
+      - name: actor
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_actor')
+              field: actor
+      - name: repo
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_repo')
+              field: repo
+      - name: mes_de_vida
+        description: Meses desde la cohorte. Eje horizontal de la retención.
+        tests: [not_null]

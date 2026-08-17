@@ -443,3 +443,52 @@ Sustituye a D11.
   2. La deduplicación ya no protege contra un mismo evento republicado en dos
      días distintos. Medido: **cero casos** entre días consecutivos y entre
      días lejanos, así que el riesgo real es nulo con estos datos.
+
+## D28 — Modelo en estrella: tres hechos, uno por pregunta de negocio
+
+- **Qué**: `fct_pr_evento` (grano: evento de PR), `fct_pr_ciclo` (grano: un PR)
+  y `fct_actividad_contribuyente` (grano: actor × repo × mes), sobre
+  `dim_fecha`, `dim_actor` y `dim_repo`.
+- **Alternativas**: un único hecho de eventos del que colgara todo, y dejar el
+  cálculo de latencias y cohortes al dashboard.
+- **Por qué**: cada pregunta tiene un grano distinto y mezclarlas obliga a
+  reagrupar en cada consulta de Evidence, que es donde peor se depura. Con un
+  hecho por pregunta, cada página del dashboard es un `select` casi directo.
+- **Coste**: `fct_pr_evento` y `fct_pr_ciclo` comparten origen y se recalculan
+  por separado. Es duplicación de cómputo, no de verdad: el grano manda.
+
+## D29 — `dim_fecha` marca el formato de la fuente y los huecos
+
+- **Qué**: la dimensión de fecha trae `formato_fuente`, `es_hueco_conocido` y
+  `tiene_datos`.
+- **Alternativas**: dejar esa información en la documentación y confiar en que
+  quien haga el gráfico se acuerde.
+- **Por qué**: el cambio de formato del 2025-10-09 y los seis días vacíos de
+  D13 son propiedades **del dato**, no del proyecto. Teniéndolas en la
+  dimensión, el dashboard puede sombrear el tramo o cortar la serie sin
+  codificar fechas a mano en cada gráfico.
+- **Coste**: la fecha del cambio queda escrita en el SQL de `dim_fecha`. Es el
+  único sitio del pipeline donde aparece: silver la detecta por campos (D12).
+
+## D30 — La censura se marca en el hecho, no se filtra
+
+- **Qué**: `fct_pr_ciclo` expone `apertura_observada`, `merge_observado` y
+  `cohorte_madura`, y conserva **todas** las filas.
+- **Alternativas**: excluir de la tabla los PRs censurados.
+- **Por qué**: el volumen de censura es en sí mismo un dato que hay que poder
+  enseñar. Sobre la ventana de desarrollo, 440.260 PRs tenían apertura sin
+  merge observado y 230.282 lo contrario: filtrarlos en silencio habría dado
+  una media limpia y falsa.
+- **Coste**: obliga a que cada consulta filtre. Está escrito en mayúsculas en
+  la descripción del modelo, y es lo primero que hay que comprobar si un número
+  de latencia parece demasiado bueno.
+
+## D31 — Un test genérico propio en vez de `dbt_utils`
+
+- **Qué**: `combinacion_unica`, doce líneas en `macros/`.
+- **Alternativas**: añadir `dbt_utils` como dependencia.
+- **Por qué**: hace falta porque **ninguna clave de los hechos es de una sola
+  columna** (D27), y traer un paquete entero para un test no compensa en un
+  proyecto que presume de no tener capas de más.
+- **Coste**: si más adelante hacen falta tres o cuatro utilidades más, lo
+  sensato será instalar el paquete y borrar esta macro.

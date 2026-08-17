@@ -1,0 +1,21 @@
+# Perfil local. Vive en el repo a proposito: no contiene credenciales, solo
+# rutas, y asi el proyecto se ejecuta sin configurar nada a mano.
+gharchive:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # El .duckdb va al lago, no al repo: crece con los hechos y esta
+      # gitignoreado. Al repo solo suben los agregados de la Fase 4.
+      path: "{{ env_var('GHA_DATA_DIR', 'D:/gharchive-data') }}/gold/gh_archive.duckdb"
+      threads: 8
+      extensions:
+        - httpfs
+        - parquet
+      settings:
+        # DuckDB por defecto usa hasta el 80% de la RAM; con 32 GB y Spark
+        # pudiendo correr a la vez, se limita para no competir.
+        memory_limit: "12GB"
+        # Sin esto, una agregacion sobre 1.300 millones de filas muere en vez
+        # de tirar a disco.
+        temp_directory: "{{ env_var('GHA_DATA_DIR', 'D:/gharchive-data') }}/duckdb-tmp"

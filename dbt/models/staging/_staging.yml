@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_eventos
+    description: |
+      Vista sobre `silver/eventos`. No transforma: expone el Parquet
+      particionado como tabla y acota la ventana del proyecto.
+      GRANO: un evento de cualquier tipo.
+    columns:
+      - name: evento_id
+        tests: [not_null]
+      - name: fecha
+        tests: [not_null]
+      - name: actor_clase
+        tests:
+          - accepted_values:
+              values: [humano, agente_ia, bot_dependencias, bot_ci, bot_otro]
+
+  - name: stg_pr_eventos
+    description: |
+      Vista sobre `silver/pr_eventos`.
+      GRANO: un evento relacionado con un pull request.
+    columns:
+      - name: evento_id
+        tests: [not_null]
+      - name: pr_id
+        tests: [not_null]
+      - name: esquema
+        tests:
+          - accepted_values:
+              values: [completo, reducido]
