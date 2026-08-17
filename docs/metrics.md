@@ -496,3 +496,41 @@ Efecto del arreglo, mismo rango (7 días, 24.417.900 filas de bronze):
 |---|---|---|
 | Resultado | `IOException: Espacio en disco insuficiente` | 2.912.405 filas |
 | Duración | abortaba | **112,3 s** |
+
+---
+
+## Silver sobre el backfill completo — 2026-08-17
+
+| Tabla | Particiones | Filas | Disco |
+|---|---:|---:|---:|
+| `silver/eventos` | 361 | 1.311.676.396 | 37,0 GiB |
+| `silver/pr_eventos` | 361 | **99.400.474** | 3,4 GiB |
+
+`pr_eventos` es el 7,6 % de los eventos: los tipos de PR, review e issue.
+
+### Duración por lote (`pr_eventos`)
+
+| Lote | Filas leídas de bronze | Duración |
+|---|---:|---:|
+| 2025-08-13 → 2025-10-31 | 268.441.080 | 3.908,4 s |
+| 2025-11-01 → 2026-01-31 | 325.204.396 | 2.144,8 s |
+| 2026-02-01 → 2026-04-30 | 323.560.929 | 2.076,7 s |
+| 2026-05-01 → 2026-08-15 | 402.189.354 | **778,8 s** |
+
+El último lote lee **un 50 % más de filas que el primero y tarda cinco veces
+menos**. La diferencia es el peso de `evento_json`: el tramo A lo conserva
+íntegro y el tramo B apenas lo tiene, y ese texto es lo que domina la lectura.
+
+### Ocupación final frente al presupuesto
+
+| Concepto | GiB |
+|---|---:|
+| Bronze | 149,4 |
+| Silver | 40,4 |
+| Crudo de pruebas sin borrar | ~3,0 |
+| **Total** | **192,8** de 232,8 |
+
+Margen: **17 %**. El reparto proyectado en D19 quater daba ~213,6 GiB, así que
+la realidad quedó un 10 % por debajo.
+
+Discos tras el incidente: `C:` 611,3 GB libres, `D:` 1.229,9 GB libres.
