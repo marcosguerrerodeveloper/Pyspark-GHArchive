@@ -62,10 +62,15 @@ CONSULTAS = {
     """,
 
     # ---------------------------------------------------------------- P2
+    # cohorte_madura sale como COLUMNA, no como filtro: si se filtrara aqui,
+    # una ventana sin cohortes maduras produciria una tabla vacia y el
+    # dashboard no podria ni explicar por que no hay datos. Filtrar es tarea
+    # de la pagina, que ademas asi puede ensenar cuanto se descarta.
     "p2_latencias_mensuales": """
         select
             date_trunc('month', abierto_en)::date as mes_apertura,
             autor_clase,
+            cohorte_madura,
             count(*)                                as prs,
             count(horas_hasta_primer_review)        as con_review,
             count(horas_hasta_merge)                as con_merge,
@@ -74,9 +79,8 @@ CONSULTAS = {
             round(quantile_cont(horas_hasta_merge, 0.9), 2) as p90_h_merge
         from fct_pr_ciclo
         where apertura_observada
-          and cohorte_madura
           and autor_clase is not null
-        group by 1, 2
+        group by 1, 2, 3
         order by 1, 2
     """,
     "p2_censura": """

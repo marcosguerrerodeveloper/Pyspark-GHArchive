@@ -1,0 +1,29 @@
+{
+  "name": "gharchive-dashboard",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "evidence build",
+    "build:strict": "evidence build:strict",
+    "dev": "evidence dev --open /",
+    "sources": "evidence sources",
+    "preview": "evidence preview"
+  },
+  "engines": {
+    "npm": ">=7.0.0",
+    "node": ">=18.0.0"
+  },
+  "type": "module",
+  "comment": "El template de Evidence trae trece conectores; aqui solo se usa duckdb, que lee los Parquet agregados. Quitar el resto acorta la instalacion en Actions y reduce la superficie de dependencias.",
+  "dependencies": {
+    "@evidence-dev/core-components": "^5.4.2",
+    "@evidence-dev/duckdb": "^2.0.1",
+    "@evidence-dev/evidence": "^40.1.8"
+  },
+  "overrides": {
+    "jsonwebtoken": "9.0.0",
+    "trim@<0.0.3": ">0.0.3",
+    "axios": "^1.7.4",
+    "typescript": "^5.9.0"
+  },
+  "comment_typescript": "typescript se fija a 5 porque npm resuelve la 7 por defecto y svelte2tsx, que Evidence 40 arrastra, exige 4 o 5. Se fija en overrides en vez de instalar con --legacy-peer-deps, que dejaria el conflicto latente."
+}

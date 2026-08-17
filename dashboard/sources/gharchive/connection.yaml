@@ -1,0 +1,7 @@
+# DuckDB en memoria. Los datos no vienen de una base de datos sino de los
+# Parquet agregados que exporta exportar_gold.py y que si viven en el repo:
+# el runner de Actions no tiene acceso al lago.
+name: gharchive
+type: duckdb
+options:
+  filename: ":memory:"
